@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"flag"
 	"strings"
+	"container/list"
 )
 
 // Read a whole file into the memory and store it as array of lines
@@ -79,6 +80,13 @@ func writeStrings(file *os.File) {
 	}
 }
 
+func writeVars(file *os.File) {
+	for el := intvars.Front(); el != nil; el = el.Next() {
+		file.WriteString(fmt.Sprintf("intvar%s:\n" +
+			"	.word	0\n", el.Value))
+	}
+}
+
 func checkerr(err error) bool {
 	if err != nil {
 		fmt.Println("Error: %s\n", err)
@@ -88,6 +96,9 @@ func checkerr(err error) bool {
 }
 
 var stringlist map[string]string
+var intvars *list.List
+var stringvars *list.List
+var fors map[string]int
 
 func usage() {
 	fmt.Fprintf(os.Stderr, "usage: %s [inputfile]\n", os.Args[0])
@@ -95,8 +106,19 @@ func usage() {
 	os.Exit(2)
 }
 
+func compileRE(restring string) *regexp.Regexp {
+	re, err := regexp.Compile(restring)
+	if checkerr(err) {
+		os.Exit(1)
+	}
+	return re
+}
+
 func main() {
 	stringlist = make(map[string]string)
+	intvars = list.New()
+	stringvars = list.New()
+	fors = make(map[string]int)
 
 	fmt.Println("BASIC")
 
@@ -121,15 +143,14 @@ func main() {
 	}
 	defer file.Close()
 	writeHeader(file);
-	re, err := regexp.Compile("([0-9]+) .*")
-	if checkerr(err) {
-		return
-	}
-	printre, err := regexp.Compile("[0-9]+\\s+PRINT\\s+\"([^\"]*)\"(;?)\\s*")
-	if checkerr(err) {
-		return
-	}
-	gotore, err := regexp.Compile("[0-9]+\\s+GOTO\\s+([0-9]+)\\s*")
+	re := compileRE("([0-9]+) .*")
+	printre := compileRE("[0-9]+\\s+PRINT\\s+\"([^\"]*)\"(;?)\\s*")
+	gotore := compileRE("[0-9]+\\s+GOTO\\s+([0-9]+)\\s*")
+	letintre := compileRE("[0-9]+\\s+LET\\s+([A-Z][A-Z0-9_]*)\\s*=\\s*([0-9]+)\\s*")
+	letstringre := compileRE("[0-9]+\\s+LET\\s+([A-Z][A-Z0-9_]*$)\\s*=\\s*([0-9]+)\\s*")
+	fortore := compileRE("[0-9]+\\s+FOR\\s+([A-Z][A-Z0-9_]*)\\s*=\\s*([0-9]+)\\s*TO\\s*([0-9]+)\\s*")
+	nextre := compileRE("[0-9]+\\s+NEXT\\s+([A-Z][A-Z0-9_]*)\\s*")
+	
 	for _, line := range lines {
 		if re.MatchString(line) {
 			num := re.FindStringSubmatch(line)[1]
@@ -145,6 +166,29 @@ func main() {
 			} else if gotore.MatchString(line) {
 				gotonum := gotore.FindStringSubmatch(line)[1]
 				file.WriteString(fmt.Sprintf("	b	line%s\n", gotonum))
+			} else if letintre.MatchString(line) {
+				varname := letintre.FindStringSubmatch(line)[1]
+				varval := letintre.FindStringSubmatch(line)[2]
+				intvars.PushBack(varname)
+				file.WriteString(fmt.Sprintf("	ldr	r0, =intvar%s\n" +
+					"	ldr	r1, =%s\n" +
+					"	str	r1, [r0]\n", varname, varval))
+			} else if letstringre.MatchString(line) {
+			} else if fortore.MatchString(line) {
+				// define a variable if it doesn't already exist
+				// store a label for where this loop starts
+				// store the upperlimit
+				//varname := fortore.FindStringSubmatch(line)[1]
+				//limit := fortore.FindStringSubmatch(line)[2]
+			} else if nextre.MatchString(line) {
+				// check if variable exists
+				// increment variable
+				// check if variable has hit limit
+				// if not, jump to start
+				// otherwise, remove loop from map
+				//varname := fortore.FindStringSubmatch(line)[1]
+			} else {
+				fmt.Println("Syntax error")
 			}
 		}
 		fmt.Println(line)
@@ -152,4 +196,5 @@ func main() {
 	writeEnd(file);
 	writeLib(file);
 	writeStrings(file);
+	writeVars(file);
 }
