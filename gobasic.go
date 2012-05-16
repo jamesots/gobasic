@@ -58,6 +58,7 @@ func writeEnd(file *os.File) {
 
 func writeLib(file *os.File) {
 	file.WriteString("print:\n" +
+		"	push	{r7}\n" +
 		"	mov	r2, #0\n" +
 		"printloop:\n" + 
 		"	ldrb	r1, [r0, r2]\n" +
@@ -68,6 +69,7 @@ func writeLib(file *os.File) {
 		"	mov	r0, #1\n" +
 		"	mov	r7, #4\n" +
 		"	svc	0x00000000\n" +
+		"	pop	{r7}\n" +
 		"	bx	lr\n")
 }
 
@@ -154,7 +156,7 @@ func main() {
 	for _, line := range lines {
 		if re.MatchString(line) {
 			num := re.FindStringSubmatch(line)[1]
-			file.WriteString(fmt.Sprintf("line%s:\n", num))
+			file.WriteString(fmt.Sprintf("line%s:				@ %s\n", num, line))
 			if printre.MatchString(line) {
 				if printre.FindStringSubmatch(line)[2] != ";" {
 					stringlist[num] = fmt.Sprintf("%s\\n", printre.FindStringSubmatch(line)[1])
