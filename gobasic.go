@@ -7,6 +7,8 @@ import (
 	"io"
 	"bytes"
 	"regexp"
+	"flag"
+	"strings"
 )
 
 // Read a whole file into the memory and store it as array of lines
@@ -71,7 +73,7 @@ func writeLib(file *os.File) {
 func writeStrings(file *os.File) {
 	file.WriteString(".align 2\n" +
 		".section .data\n")
-	for key, value := range strings {
+	for key, value := range stringlist {
 		file.WriteString(fmt.Sprintf("string%s:\n" +
 			"	.asciz \"%s\"\n", key, value))
 	}
@@ -85,18 +87,35 @@ func checkerr(err error) bool {
 	return false
 }
 
-var strings map[string]string
+var stringlist map[string]string
+
+func usage() {
+	fmt.Fprintf(os.Stderr, "usage: %s [inputfile]\n", os.Args[0])
+	flag.PrintDefaults()
+	os.Exit(2)
+}
 
 func main() {
-	strings = make(map[string]string)
+	stringlist = make(map[string]string)
 
 	fmt.Println("BASIC")
-	lines, err := readLines("prog.bas")
+
+	flag.Usage = usage
+	flag.Parse()
+
+	args := flag.Args()
+	if len(args) < 1 {
+		fmt.Println("Input file missing")
+		os.Exit(1)
+	}
+	filename := args[0]
+
+	lines, err := readLines(filename)
 	if checkerr(err) {
 		return
 	}
 	var file *os.File
-	if file, err = os.Create("prog.S"); err != nil {
+	if file, err = os.Create(strings.Replace(filename, ".bas", ".S", 1)); err != nil {
 		fmt.Println("Error: %s\n", err)
 		return
 	}
@@ -117,9 +136,9 @@ func main() {
 			file.WriteString(fmt.Sprintf("line%s:\n", num))
 			if printre.MatchString(line) {
 				if printre.FindStringSubmatch(line)[2] != ";" {
-					strings[num] = fmt.Sprintf("%s\\n", printre.FindStringSubmatch(line)[1])
+					stringlist[num] = fmt.Sprintf("%s\\n", printre.FindStringSubmatch(line)[1])
 				} else {
-					strings[num] = printre.FindStringSubmatch(line)[1]
+					stringlist[num] = printre.FindStringSubmatch(line)[1]
 				}
 				file.WriteString(fmt.Sprintf("	ldr	r0, =string%s\n" +
 					"	bl	print\n", num))
