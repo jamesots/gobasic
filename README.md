@@ -9,3 +9,5 @@ PRINT and GO. And only in upper case. And if you put bad characters in your
 strings it won't work. And it compiles to assembly, so you need an assembler too. 
 Anyway, it isn't very good, but it's fun for me.
 
+New:
+Really basic for loops

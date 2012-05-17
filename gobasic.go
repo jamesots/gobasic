@@ -225,6 +225,8 @@ func main() {
 				}
 				fors[loopinfo.varname] = loopinfo
 				DeclareIntVar(file, loopinfo.varname, start)
+				file.WriteString(fmt.Sprintf(
+					"for%s:\n", linenum))
 			case nextRE.MatchString(line):
 				// check if variable exists
 				// increment variable
@@ -234,13 +236,13 @@ func main() {
 				varname := nextRE.FindStringSubmatch(line)[1]
 				if loopinfo, exists := fors[varname]; exists {
 					file.WriteString(fmt.Sprintf(
-						"	ldr	r0, =intvar%s\n" +
-						"	ldr	r1, [r0]\n" +
-						"	add	r1, r1, #1\n" +
-						"	str	r1, [r0]\n" +
+						"	ldr	r2, =intvar%s\n" +
+						"	ldr	r1, [r2]\n" +
 						"	ldr	r0, =%d\n" +
 						"	cmp	r0, r1\n" +
-						"	bne	line%s\n", loopinfo.varname, loopinfo.limit, loopinfo.linenum))
+						"	addne	r1, r1, #1\n" +
+						"	strne	r1, [r2]\n" +
+						"	bne	for%s\n", loopinfo.varname, loopinfo.limit, loopinfo.linenum))
 				}
 			default:
 				fmt.Println("Syntax error")
