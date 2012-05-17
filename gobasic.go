@@ -10,10 +10,11 @@ import (
 	"flag"
 	"strings"
 	"container/list"
+	"strconv"
 )
 
 // Read a whole file into the memory and store it as array of lines
-func readLines(path string) (lines []string, err error) {
+func ReadLines(path string) (lines []string, err error) {
     var (
         file *os.File
         part []byte
@@ -42,22 +43,34 @@ func readLines(path string) (lines []string, err error) {
     return
 }
 
-func writeHeader(file *os.File) {
-	file.WriteString("@filename: prog.S\n" +
+func DeclareIntVar(file *os.File, name string, value int) {
+	intvars.PushBack(name)
+	file.WriteString(fmt.Sprintf(
+		"	ldr	r0, =intvar%s\n" +
+		"	ldr	r1, =%d\n" +
+		"	str	r1, [r0]\n", name, value))
+}
+
+func WriteHeader(file *os.File) {
+	file.WriteString(
+		"@filename: prog.S\n" +
 		".text\n" +
 		".align 2\n" +
 		".global _start\n" + 
 		"_start:\n")
 }
 
-func writeEnd(file *os.File) {
-	file.WriteString("	mov	r0, #0\n" + 
+func WriteEnd(file *os.File) {
+	file.WriteString(
+		"@end\n" +
+		"	mov	r0, #0\n" + 
 		"	mov	r7, #1\n" + 
 		"	svc	0x00000000\n")
 }
 
-func writeLib(file *os.File) {
-	file.WriteString("print:\n" +
+func WriteLib(file *os.File) {
+	file.WriteString(
+		"print:\n" +
 		"	push	{r7}\n" +
 		"	mov	r2, #0\n" +
 		"printloop:\n" + 
@@ -73,23 +86,26 @@ func writeLib(file *os.File) {
 		"	bx	lr\n")
 }
 
-func writeStrings(file *os.File) {
-	file.WriteString(".align 2\n" +
+func WriteStrings(file *os.File) {
+	file.WriteString(
+		".align 2\n" +
 		".section .data\n")
 	for key, value := range stringlist {
-		file.WriteString(fmt.Sprintf("string%s:\n" +
+		file.WriteString(fmt.Sprintf(
+			"string%s:\n" +
 			"	.asciz \"%s\"\n", key, value))
 	}
 }
 
-func writeVars(file *os.File) {
+func WriteVars(file *os.File) {
 	for el := intvars.Front(); el != nil; el = el.Next() {
-		file.WriteString(fmt.Sprintf("intvar%s:\n" +
+		file.WriteString(fmt.Sprintf(
+			"intvar%s:\n" +
 			"	.word	0\n", el.Value))
 	}
 }
 
-func checkerr(err error) bool {
+func CheckError(err error) bool {
 	if err != nil {
 		fmt.Println("Error: %s\n", err)
 		return true
@@ -97,20 +113,26 @@ func checkerr(err error) bool {
 	return false
 }
 
+type LoopInfo struct {
+	varname string
+	limit int
+	linenum string
+}
+
 var stringlist map[string]string
 var intvars *list.List
 var stringvars *list.List
-var fors map[string]int
+var fors map[string]LoopInfo
 
-func usage() {
-	fmt.Fprintf(os.Stderr, "usage: %s [inputfile]\n", os.Args[0])
+func Usage() {
+	fmt.Fprintf(os.Stderr, "Usage: %s [inputfile]\n", os.Args[0])
 	flag.PrintDefaults()
 	os.Exit(2)
 }
 
-func compileRE(restring string) *regexp.Regexp {
+func CompileRegExp(restring string) *regexp.Regexp {
 	re, err := regexp.Compile(restring)
-	if checkerr(err) {
+	if CheckError(err) {
 		os.Exit(1)
 	}
 	return re
@@ -120,11 +142,11 @@ func main() {
 	stringlist = make(map[string]string)
 	intvars = list.New()
 	stringvars = list.New()
-	fors = make(map[string]int)
+	fors = make(map[string]LoopInfo)
 
 	fmt.Println("BASIC")
 
-	flag.Usage = usage
+	flag.Usage = Usage
 	flag.Parse()
 
 	args := flag.Args()
@@ -134,8 +156,8 @@ func main() {
 	}
 	filename := args[0]
 
-	lines, err := readLines(filename)
-	if checkerr(err) {
+	lines, err := ReadLines(filename)
+	if CheckError(err) {
 		return
 	}
 	var file *os.File
@@ -144,59 +166,91 @@ func main() {
 		return
 	}
 	defer file.Close()
-	writeHeader(file);
-	re := compileRE("([0-9]+) .*")
-	printre := compileRE("[0-9]+\\s+PRINT\\s+\"([^\"]*)\"(;?)\\s*")
-	gotore := compileRE("[0-9]+\\s+GOTO\\s+([0-9]+)\\s*")
-	letintre := compileRE("[0-9]+\\s+LET\\s+([A-Z][A-Z0-9_]*)\\s*=\\s*([0-9]+)\\s*")
-	letstringre := compileRE("[0-9]+\\s+LET\\s+([A-Z][A-Z0-9_]*$)\\s*=\\s*([0-9]+)\\s*")
-	fortore := compileRE("[0-9]+\\s+FOR\\s+([A-Z][A-Z0-9_]*)\\s*=\\s*([0-9]+)\\s*TO\\s*([0-9]+)\\s*")
-	nextre := compileRE("[0-9]+\\s+NEXT\\s+([A-Z][A-Z0-9_]*)\\s*")
+	WriteHeader(file);
+	lineRE := CompileRegExp("([0-9]+) .*")
+	printRE := CompileRegExp("[0-9]+\\s+PRINT\\s+\"([^\"]*)\"(;?)\\s*")
+	gotoRE := CompileRegExp("[0-9]+\\s+GOTO\\s+([0-9]+)\\s*")
+	letIntRE := CompileRegExp("[0-9]+\\s+LET\\s+([A-Z][A-Z0-9_]*)\\s*=\\s*([0-9]+)\\s*")
+	letStringRE := CompileRegExp("[0-9]+\\s+LET\\s+([A-Z][A-Z0-9_]*$)\\s*=\\s*([0-9]+)\\s*")
+	forToRE := CompileRegExp("[0-9]+\\s+FOR\\s+([A-Z][A-Z0-9_]*)\\s*=\\s*([0-9]+)\\s*TO\\s*([0-9]+)\\s*")
+	nextRE := CompileRegExp("[0-9]+\\s+NEXT\\s+([A-Z][A-Z0-9_]*)\\s*")
 	
 	for _, line := range lines {
-		if re.MatchString(line) {
-			num := re.FindStringSubmatch(line)[1]
-			file.WriteString(fmt.Sprintf("line%s:				@ %s\n", num, line))
-			if printre.MatchString(line) {
-				if printre.FindStringSubmatch(line)[2] != ";" {
-					stringlist[num] = fmt.Sprintf("%s\\n", printre.FindStringSubmatch(line)[1])
+		if lineRE.MatchString(line) {
+			linenum := lineRE.FindStringSubmatch(line)[1]
+			file.WriteString(fmt.Sprintf(
+				"line%s:				@ %s\n", linenum, line))
+			switch {
+			case printRE.MatchString(line):
+				if printRE.FindStringSubmatch(line)[2] != ";" {
+					stringlist[linenum] = fmt.Sprintf("%s\\n", printRE.FindStringSubmatch(line)[1])
 				} else {
-					stringlist[num] = printre.FindStringSubmatch(line)[1]
+					stringlist[linenum] = printRE.FindStringSubmatch(line)[1]
 				}
-				file.WriteString(fmt.Sprintf("	ldr	r0, =string%s\n" +
-					"	bl	print\n", num))
-			} else if gotore.MatchString(line) {
-				gotonum := gotore.FindStringSubmatch(line)[1]
-				file.WriteString(fmt.Sprintf("	b	line%s\n", gotonum))
-			} else if letintre.MatchString(line) {
-				varname := letintre.FindStringSubmatch(line)[1]
-				varval := letintre.FindStringSubmatch(line)[2]
-				intvars.PushBack(varname)
-				file.WriteString(fmt.Sprintf("	ldr	r0, =intvar%s\n" +
-					"	ldr	r1, =%s\n" +
-					"	str	r1, [r0]\n", varname, varval))
-			} else if letstringre.MatchString(line) {
-			} else if fortore.MatchString(line) {
+				file.WriteString(fmt.Sprintf(
+					"	ldr	r0, =string%s\n" +
+					"	bl	print\n", linenum))
+			case gotoRE.MatchString(line):
+				gotonum := gotoRE.FindStringSubmatch(line)[1]
+				file.WriteString(fmt.Sprintf(
+					"	b	line%s\n", gotonum))
+			case letIntRE.MatchString(line):
+				varname := letIntRE.FindStringSubmatch(line)[1]
+				varval := letIntRE.FindStringSubmatch(line)[2]
+				value, err := strconv.Atoi(varval)
+				if err != nil {
+					fmt.Println("Syntax error on line %n", linenum)
+					os.Exit(1)
+				}
+				DeclareIntVar(file, varname, value)
+			case letStringRE.MatchString(line):
+			case forToRE.MatchString(line):
 				// define a variable if it doesn't already exist
 				// store a label for where this loop starts
 				// store the upperlimit
-				//varname := fortore.FindStringSubmatch(line)[1]
-				//limit := fortore.FindStringSubmatch(line)[2]
-			} else if nextre.MatchString(line) {
+				start, err := strconv.Atoi(forToRE.FindStringSubmatch(line)[2])
+				if err != nil {
+					fmt.Println("Syntax error on line %n", linenum)
+					os.Exit(1)
+				}
+				limit, err := strconv.Atoi(forToRE.FindStringSubmatch(line)[3])
+				if err != nil {
+					fmt.Println("Syntax error on line %n", linenum)
+					os.Exit(1)
+				}
+				loopinfo := LoopInfo{
+					forToRE.FindStringSubmatch(line)[1],
+					limit,
+					linenum,
+				}
+				fors[loopinfo.varname] = loopinfo
+				DeclareIntVar(file, loopinfo.varname, start)
+			case nextRE.MatchString(line):
 				// check if variable exists
 				// increment variable
 				// check if variable has hit limit
 				// if not, jump to start
 				// otherwise, remove loop from map
-				//varname := fortore.FindStringSubmatch(line)[1]
-			} else {
+				varname := nextRE.FindStringSubmatch(line)[1]
+				if loopinfo, exists := fors[varname]; exists {
+					file.WriteString(fmt.Sprintf(
+						"	ldr	r0, =intvar%s\n" +
+						"	ldr	r1, [r0]\n" +
+						"	add	r1, r1, #1\n" +
+						"	str r1, [r0]\n" +
+						"	mov r0, #%d\n" + // do i need a ldr here?
+						"	cmp	r0, r1\n" +
+						"	bne	line%s\n", loopinfo.varname, loopinfo.limit, loopinfo.linenum))
+				}
+			default:
 				fmt.Println("Syntax error")
+				os.Exit(1)
 			}
 		}
 		fmt.Println(line)
 	}
-	writeEnd(file);
-	writeLib(file);
-	writeStrings(file);
-	writeVars(file);
+	WriteEnd(file);
+	WriteLib(file);
+	WriteStrings(file);
+	WriteVars(file);
 }
