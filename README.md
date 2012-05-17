@@ -10,5 +10,5 @@ strings it won't work. And it compiles to assembly, so you need an assembler too
 Anyway, it isn't very good, but it's fun for me.
 
 New:
-Really basic for loops
-Can print integer variables
+* Really basic for loops
+* Can print integer variables
