@@ -1,52 +1,52 @@
 package main
 
 import (
-	"fmt"
 	"bufio"
-	"os"
-	"io"
 	"bytes"
-	"regexp"
-	"flag"
-	"strings"
 	"container/list"
+	"flag"
+	"fmt"
+	"io"
+	"os"
+	"regexp"
 	"strconv"
+	"strings"
 )
 
 // Read a whole file into the memory and store it as array of lines
 func ReadLines(path string) (lines []string, err error) {
-    var (
-        file *os.File
-        part []byte
-        prefix bool
-    )
-    if file, err = os.Open(path); err != nil {
-        return
-    }
-    defer file.Close()
+	var (
+		file   *os.File
+		part   []byte
+		prefix bool
+	)
+	if file, err = os.Open(path); err != nil {
+		return
+	}
+	defer file.Close()
 
-    reader := bufio.NewReader(file)
-    buffer := bytes.NewBuffer(make([]byte, 0))
-    for {
-        if part, prefix, err = reader.ReadLine(); err != nil {
-            break
-        }
-        buffer.Write(part)
-        if !prefix {
-            lines = append(lines, buffer.String())
-            buffer.Reset()
-        }
-    }
-    if err == io.EOF {
-        err = nil
-    }
-    return
+	reader := bufio.NewReader(file)
+	buffer := bytes.NewBuffer(make([]byte, 0))
+	for {
+		if part, prefix, err = reader.ReadLine(); err != nil {
+			break
+		}
+		buffer.Write(part)
+		if !prefix {
+			lines = append(lines, buffer.String())
+			buffer.Reset()
+		}
+	}
+	if err == io.EOF {
+		err = nil
+	}
+	return
 }
 
 func DeclareIntVar(file *os.File, name string, value int) {
 	intvars.PushBack(name)
 	file.WriteString(fmt.Sprintf(
-`	ldr	r0, =intvar%s
+		`	ldr	r0, =intvar%s
 	ldr	r1, =%d
 	str	r1, [r0]
 `, name, value))
@@ -54,7 +54,7 @@ func DeclareIntVar(file *os.File, name string, value int) {
 
 func WriteHeader(file *os.File) {
 	file.WriteString(
-`@filename: prog.S
+		`@filename: prog.S
 .text
 .align 2
 .global _start
@@ -64,7 +64,7 @@ _start:
 
 func WriteEnd(file *os.File) {
 	file.WriteString(
-`@end
+		`@end
 	mov	r0, #0
 	mov	r7, #1
 	svc	0x00000000
@@ -73,7 +73,7 @@ func WriteEnd(file *os.File) {
 
 func WriteLib(file *os.File) {
 	file.WriteString(
-`print:
+		`print:
 	push	{r7}
 	mov	r2, #0
 printloop: 
@@ -92,12 +92,12 @@ printloop:
 
 func WriteStrings(file *os.File) {
 	file.WriteString(
-`.align 2
+		`.align 2
 .section .data
 `)
 	for key, value := range stringlist {
 		file.WriteString(fmt.Sprintf(
-`string%s:
+			`string%s:
 	.asciz "%s"
 `, key, value))
 	}
@@ -106,7 +106,7 @@ func WriteStrings(file *os.File) {
 func WriteVars(file *os.File) {
 	for el := intvars.Front(); el != nil; el = el.Next() {
 		file.WriteString(fmt.Sprintf(
-`intvar%s:
+			`intvar%s:
 	.word	0
 `, el.Value))
 	}
@@ -122,7 +122,7 @@ func CheckError(err error) bool {
 
 type LoopInfo struct {
 	varname string
-	limit int
+	limit   int
 	linenum string
 }
 
@@ -173,7 +173,7 @@ func main() {
 		return
 	}
 	defer file.Close()
-	WriteHeader(file);
+	WriteHeader(file)
 	lineRE := CompileRegExp(`([0-9]+) .*`)
 	printRE := CompileRegExp(`[0-9]+\s+PRINT\s+"([^"]*)"(;?)\s*`)
 	gotoRE := CompileRegExp(`[0-9]+\s+GOTO\s+([0-9]+)\s*`)
@@ -181,7 +181,7 @@ func main() {
 	letStringRE := CompileRegExp(`[0-9]+\s+LET\s+([A-Z][A-Z0-9_]*$)\s*=\s*([0-9]+)\s*`)
 	forToRE := CompileRegExp(`[0-9]+\s+FOR\s+([A-Z][A-Z0-9_]*)\s*=\s*([0-9]+)\s*TO\s*([0-9]+)\s*`)
 	nextRE := CompileRegExp(`[0-9]+\s+NEXT\s+([A-Z][A-Z0-9_]*)\s*`)
-	
+
 	for _, line := range lines {
 		if lineRE.MatchString(line) {
 			linenum := lineRE.FindStringSubmatch(line)[1]
@@ -195,7 +195,7 @@ func main() {
 					stringlist[linenum] = printRE.FindStringSubmatch(line)[1]
 				}
 				file.WriteString(fmt.Sprintf(
-`	ldr	r0, =string%s
+					`	ldr	r0, =string%s
 	bl	print
 `, linenum))
 			case gotoRE.MatchString(line):
@@ -244,7 +244,7 @@ func main() {
 				varname := nextRE.FindStringSubmatch(line)[1]
 				if loopinfo, exists := fors[varname]; exists {
 					file.WriteString(fmt.Sprintf(
-`	ldr	r2, =intvar%s
+						`	ldr	r2, =intvar%s
 	ldr	r1, [r2]
 	ldr	r0, =%d
 	cmp	r0, r1
@@ -260,8 +260,8 @@ func main() {
 		}
 		fmt.Println(line)
 	}
-	WriteEnd(file);
-	WriteLib(file);
-	WriteStrings(file);
-	WriteVars(file);
+	WriteEnd(file)
+	WriteLib(file)
+	WriteStrings(file)
+	WriteVars(file)
 }
