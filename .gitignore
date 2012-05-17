@@ -20,8 +20,9 @@ _cgo_export.*
 _testmain.go
 
 *.exe
-*.S
+prog.S
+*.o
 gobasic
 a.out
 prog
-prog.list
+*.list

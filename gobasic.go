@@ -43,6 +43,15 @@ func ReadLines(path string) (lines []string, err error) {
 	return
 }
 
+func PrintIntVar(file *os.File, varname string) {
+	file.WriteString(fmt.Sprintf(
+		`	ldr	r1, =intvar%s
+	ldr	r0, [r1]
+	bl	doubledabble
+	bl	print
+`, varname))
+}
+
 func DeclareIntVar(file *os.File, name string, value int) {
 	intvars.PushBack(name)
 	file.WriteString(fmt.Sprintf(
@@ -94,6 +103,8 @@ func WriteStrings(file *os.File) {
 	file.WriteString(
 		`.align 2
 .section .data
+linebreak:
+	.asciz "\n"
 `)
 	for key, value := range stringlist {
 		file.WriteString(fmt.Sprintf(
@@ -176,6 +187,8 @@ func main() {
 	WriteHeader(file)
 	lineRE := CompileRegExp(`([0-9]+) .*`)
 	printRE := CompileRegExp(`[0-9]+\s+PRINT\s+"([^"]*)"(;?)\s*`)
+	printNumRE := CompileRegExp(`[0-9]+\s+PRINT\s+([0-9]+)(;?)\s*`)
+	printIntVarRE := CompileRegExp(`[0-9]+\s+PRINT\s+([A-Za-z_]+)(;?)\s*`)
 	gotoRE := CompileRegExp(`[0-9]+\s+GOTO\s+([0-9]+)\s*`)
 	letIntRE := CompileRegExp(`[0-9]+\s+LET\s+([A-Z][A-Z0-9_]*)\s*=\s*([0-9]+)\s*`)
 	letStringRE := CompileRegExp(`[0-9]+\s+LET\s+([A-Z][A-Z0-9_]*$)\s*=\s*([0-9]+)\s*`)
@@ -199,6 +212,25 @@ func main() {
 					`	ldr	r0, =string%s
 	bl	print
 `, linenum))
+			case printNumRE.MatchString(line):
+				num := printNumRE.FindStringSubmatch(line)[1]
+				if printNumRE.FindStringSubmatch(line)[2] != ";" {
+					stringlist[linenum] = fmt.Sprintf(`"%s\n"`, num)
+				} else {
+					stringlist[linenum] = fmt.Sprintf(`"%s"`, num)
+				}
+				file.WriteString(fmt.Sprintf(
+					`	ldr	r0, =string%s
+	bl	print
+`, linenum))
+			case printIntVarRE.MatchString(line):
+				varname := printIntVarRE.FindStringSubmatch(line)[1]
+				PrintIntVar(file, varname)
+				if printIntVarRE.FindStringSubmatch(line)[2] != ";" {
+					file.WriteString(`	ldr	r0, =linebreak
+	bl	print
+`)
+				}
 			case gotoRE.MatchString(line):
 				gotonum := gotoRE.FindStringSubmatch(line)[1]
 				file.WriteString(fmt.Sprintf(
