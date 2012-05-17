@@ -107,7 +107,7 @@ func WriteVars(file *os.File) {
 
 func CheckError(err error) bool {
 	if err != nil {
-		fmt.Println("Error: %s\n", err)
+		fmt.Printf("Error: %s\n", err)
 		return true
 	}
 	return false
@@ -144,7 +144,7 @@ func main() {
 	stringvars = list.New()
 	fors = make(map[string]LoopInfo)
 
-	fmt.Println("BASIC")
+	fmt.Println("GOBASIC")
 
 	flag.Usage = Usage
 	flag.Parse()
@@ -199,7 +199,7 @@ func main() {
 				varval := letIntRE.FindStringSubmatch(line)[2]
 				value, err := strconv.Atoi(varval)
 				if err != nil {
-					fmt.Println("Syntax error on line %n", linenum)
+					fmt.Printf("Syntax error on line %n\n", linenum)
 					os.Exit(1)
 				}
 				DeclareIntVar(file, varname, value)
@@ -210,12 +210,12 @@ func main() {
 				// store the upperlimit
 				start, err := strconv.Atoi(forToRE.FindStringSubmatch(line)[2])
 				if err != nil {
-					fmt.Println("Syntax error on line %n", linenum)
+					fmt.Printf("Syntax error on line %n\n", linenum)
 					os.Exit(1)
 				}
 				limit, err := strconv.Atoi(forToRE.FindStringSubmatch(line)[3])
 				if err != nil {
-					fmt.Println("Syntax error on line %n", linenum)
+					fmt.Printf("Syntax error on line %n\n", linenum)
 					os.Exit(1)
 				}
 				loopinfo := LoopInfo{
