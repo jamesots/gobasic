@@ -46,62 +46,69 @@ func ReadLines(path string) (lines []string, err error) {
 func DeclareIntVar(file *os.File, name string, value int) {
 	intvars.PushBack(name)
 	file.WriteString(fmt.Sprintf(
-		"	ldr	r0, =intvar%s\n" +
-		"	ldr	r1, =%d\n" +
-		"	str	r1, [r0]\n", name, value))
+`	ldr	r0, =intvar%s
+	ldr	r1, =%d
+	str	r1, [r0]
+`, name, value))
 }
 
 func WriteHeader(file *os.File) {
 	file.WriteString(
-		"@filename: prog.S\n" +
-		".text\n" +
-		".align 2\n" +
-		".global _start\n" + 
-		"_start:\n")
+`@filename: prog.S
+.text
+.align 2
+.global _start
+_start:
+`)
 }
 
 func WriteEnd(file *os.File) {
 	file.WriteString(
-		"@end\n" +
-		"	mov	r0, #0\n" + 
-		"	mov	r7, #1\n" + 
-		"	svc	0x00000000\n")
+`@end
+	mov	r0, #0
+	mov	r7, #1
+	svc	0x00000000
+`)
 }
 
 func WriteLib(file *os.File) {
 	file.WriteString(
-		"print:\n" +
-		"	push	{r7}\n" +
-		"	mov	r2, #0\n" +
-		"printloop:\n" + 
-		"	ldrb	r1, [r0, r2]\n" +
-		"	cmp	r1, #0\n" +
-		"	addne	r2, r2, #1\n" +
-		"	bne	printloop\n" +
-		"	mov	r1, r0\n" +
-		"	mov	r0, #1\n" +
-		"	mov	r7, #4\n" +
-		"	svc	0x00000000\n" +
-		"	pop	{r7}\n" +
-		"	bx	lr\n")
+`print:
+	push	{r7}
+	mov	r2, #0
+printloop: 
+	ldrb	r1, [r0, r2]
+	cmp	r1, #0
+	addne	r2, r2, #1
+	bne	printloop
+	mov	r1, r0
+	mov	r0, #1
+	mov	r7, #4
+	svc	0x00000000
+	pop	{r7}
+	bx	lr
+`)
 }
 
 func WriteStrings(file *os.File) {
 	file.WriteString(
-		".align 2\n" +
-		".section .data\n")
+`.align 2
+.section .data
+`)
 	for key, value := range stringlist {
 		file.WriteString(fmt.Sprintf(
-			"string%s:\n" +
-			"	.asciz \"%s\"\n", key, value))
+`string%s:
+	.asciz "%s"
+`, key, value))
 	}
 }
 
 func WriteVars(file *os.File) {
 	for el := intvars.Front(); el != nil; el = el.Next() {
 		file.WriteString(fmt.Sprintf(
-			"intvar%s:\n" +
-			"	.word	0\n", el.Value))
+`intvar%s:
+	.word	0
+`, el.Value))
 	}
 }
 
@@ -167,13 +174,13 @@ func main() {
 	}
 	defer file.Close()
 	WriteHeader(file);
-	lineRE := CompileRegExp("([0-9]+) .*")
-	printRE := CompileRegExp("[0-9]+\\s+PRINT\\s+\"([^\"]*)\"(;?)\\s*")
-	gotoRE := CompileRegExp("[0-9]+\\s+GOTO\\s+([0-9]+)\\s*")
-	letIntRE := CompileRegExp("[0-9]+\\s+LET\\s+([A-Z][A-Z0-9_]*)\\s*=\\s*([0-9]+)\\s*")
-	letStringRE := CompileRegExp("[0-9]+\\s+LET\\s+([A-Z][A-Z0-9_]*$)\\s*=\\s*([0-9]+)\\s*")
-	forToRE := CompileRegExp("[0-9]+\\s+FOR\\s+([A-Z][A-Z0-9_]*)\\s*=\\s*([0-9]+)\\s*TO\\s*([0-9]+)\\s*")
-	nextRE := CompileRegExp("[0-9]+\\s+NEXT\\s+([A-Z][A-Z0-9_]*)\\s*")
+	lineRE := CompileRegExp(`([0-9]+) .*`)
+	printRE := CompileRegExp(`[0-9]+\s+PRINT\s+"([^"]*)"(;?)\s*`)
+	gotoRE := CompileRegExp(`[0-9]+\s+GOTO\s+([0-9]+)\s*`)
+	letIntRE := CompileRegExp(`[0-9]+\s+LET\s+([A-Z][A-Z0-9_]*)\s*=\s*([0-9]+)\s*`)
+	letStringRE := CompileRegExp(`[0-9]+\s+LET\s+([A-Z][A-Z0-9_]*$)\s*=\s*([0-9]+)\s*`)
+	forToRE := CompileRegExp(`[0-9]+\s+FOR\s+([A-Z][A-Z0-9_]*)\s*=\s*([0-9]+)\s*TO\s*([0-9]+)\s*`)
+	nextRE := CompileRegExp(`[0-9]+\s+NEXT\s+([A-Z][A-Z0-9_]*)\s*`)
 	
 	for _, line := range lines {
 		if lineRE.MatchString(line) {
@@ -188,8 +195,9 @@ func main() {
 					stringlist[linenum] = printRE.FindStringSubmatch(line)[1]
 				}
 				file.WriteString(fmt.Sprintf(
-					"	ldr	r0, =string%s\n" +
-					"	bl	print\n", linenum))
+`	ldr	r0, =string%s
+	bl	print
+`, linenum))
 			case gotoRE.MatchString(line):
 				gotonum := gotoRE.FindStringSubmatch(line)[1]
 				file.WriteString(fmt.Sprintf(
@@ -236,13 +244,14 @@ func main() {
 				varname := nextRE.FindStringSubmatch(line)[1]
 				if loopinfo, exists := fors[varname]; exists {
 					file.WriteString(fmt.Sprintf(
-						"	ldr	r2, =intvar%s\n" +
-						"	ldr	r1, [r2]\n" +
-						"	ldr	r0, =%d\n" +
-						"	cmp	r0, r1\n" +
-						"	addne	r1, r1, #1\n" +
-						"	strne	r1, [r2]\n" +
-						"	bne	for%s\n", loopinfo.varname, loopinfo.limit, loopinfo.linenum))
+`	ldr	r2, =intvar%s
+	ldr	r1, [r2]
+	ldr	r0, =%d
+	cmp	r0, r1
+	addne	r1, r1, #1
+	strne	r1, [r2]
+	bne	for%s
+`, loopinfo.varname, loopinfo.limit, loopinfo.linenum))
 				}
 			default:
 				fmt.Println("Syntax error")
