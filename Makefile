@@ -5,7 +5,7 @@ prog.S: prog.bas gobasic
 	./gobasic prog.bas
 
 clean:
-	rm prog prog.o prog.S
+	rm -if prog prog.o prog.S dabble.o gobasic prog.list dabble.list
 
 gobasic: gobasic.go
 	go build

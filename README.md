@@ -11,3 +11,4 @@ Anyway, it isn't very good, but it's fun for me.
 
 New:
 Really basic for loops
+Can print integer variables
