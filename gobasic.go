@@ -237,8 +237,8 @@ func main() {
 						"	ldr	r0, =intvar%s\n" +
 						"	ldr	r1, [r0]\n" +
 						"	add	r1, r1, #1\n" +
-						"	str r1, [r0]\n" +
-						"	mov r0, #%d\n" + // do i need a ldr here?
+						"	str	r1, [r0]\n" +
+						"	ldr	r0, =%d\n" +
 						"	cmp	r0, r1\n" +
 						"	bne	line%s\n", loopinfo.varname, loopinfo.limit, loopinfo.linenum))
 				}
