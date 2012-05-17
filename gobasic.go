@@ -98,7 +98,7 @@ func WriteStrings(file *os.File) {
 	for key, value := range stringlist {
 		file.WriteString(fmt.Sprintf(
 			`string%s:
-	.asciz "%s"
+	.asciz %s
 `, key, value))
 	}
 }
@@ -189,10 +189,11 @@ func main() {
 				"line%s:				@ %s\n", linenum, line))
 			switch {
 			case printRE.MatchString(line):
+				str := strconv.QuoteToASCII(printRE.FindStringSubmatch(line)[1])
 				if printRE.FindStringSubmatch(line)[2] != ";" {
-					stringlist[linenum] = fmt.Sprintf("%s\\n", printRE.FindStringSubmatch(line)[1])
+					stringlist[linenum] = str[:len(str)-1] + "\\n\""
 				} else {
-					stringlist[linenum] = printRE.FindStringSubmatch(line)[1]
+					stringlist[linenum] = str
 				}
 				file.WriteString(fmt.Sprintf(
 					`	ldr	r0, =string%s
@@ -213,9 +214,6 @@ func main() {
 				DeclareIntVar(file, varname, value)
 			case letStringRE.MatchString(line):
 			case forToRE.MatchString(line):
-				// define a variable if it doesn't already exist
-				// store a label for where this loop starts
-				// store the upperlimit
 				start, err := strconv.Atoi(forToRE.FindStringSubmatch(line)[2])
 				if err != nil {
 					fmt.Printf("Syntax error on line %n\n", linenum)
@@ -236,11 +234,6 @@ func main() {
 				file.WriteString(fmt.Sprintf(
 					"for%s:\n", linenum))
 			case nextRE.MatchString(line):
-				// check if variable exists
-				// increment variable
-				// check if variable has hit limit
-				// if not, jump to start
-				// otherwise, remove loop from map
 				varname := nextRE.FindStringSubmatch(line)[1]
 				if loopinfo, exists := fors[varname]; exists {
 					file.WriteString(fmt.Sprintf(
