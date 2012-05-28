@@ -116,6 +116,6 @@ func main() {
 	}
 
 	Parse(strs)
-	PrintAll(result)
+	PrintAll(file, result)
 	WriteEnd(file)
 }

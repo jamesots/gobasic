@@ -2,6 +2,7 @@
 package main
 
 import (
+	"os"
 	"fmt"
 	"strconv"
 	"container/list"
@@ -28,9 +29,10 @@ func PushAll(from Code, to Code) {
 	}
 }
 
-func PrintAll(from Code) {
+func PrintAll(file *os.File, from Code) {
 	for e := from.code.Front(); e != nil; e = e.Next() {
-		fmt.Print(e.Value)
+		var s = e.Value.(string)
+		file.WriteString(s)
 	}
 }
 
