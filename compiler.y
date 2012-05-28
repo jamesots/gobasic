@@ -12,6 +12,9 @@ var varcounter int
 
 var result Code
 
+var numvars *list.List
+var strvars *list.List
+
 type Code struct {
 	code *list.List
 	numb int
@@ -22,6 +25,16 @@ type Code struct {
 const (
 	CODE = iota
 )
+
+func Contains(l *list.List, item interface{}) bool {
+	for e := l.Front(); e != nil; e = e.Next() {
+fmt.Println("comapre ", e.Value, " and ", item)
+		if e.Value == item {
+			return true
+		}
+	}
+	return false
+}
 
 func PushAll(from Code, to Code) {
 	for e := from.code.Front(); e != nil; e = e.Next() {
@@ -154,10 +167,12 @@ letcmd:
 	{
 		NewCode(&$$)
 		if $4.state == NUM {
-			WriteCode(&$$, ".section .data\n")
-			WriteCode(&$$, "var%s:\n", $2)
-			WriteCode(&$$, "	.word %d\n", $4.numb)
-			WriteCode(&$$, ".section .text\n")
+			if !Contains(numvars, $2) {
+				WriteCode(&$$, ".section .data\n")
+				WriteCode(&$$, "var%s:\n", $2)
+				WriteCode(&$$, "	.word %d\n", $4.numb)
+				WriteCode(&$$, ".section .text\n")
+			}
 			WriteCode(&$$, "	ldr r0, =%d\n", $4.numb)
 		} else {
 			PushAll($4, $$)
@@ -367,6 +382,8 @@ func (BobLex) Error(s string) {
 }
 
 func Parse(strs []string) {
+	numvars = list.New()
+	strvars = list.New()
 	fmt.Println("Start")
 	tok = 0
 	varcounter = 0
