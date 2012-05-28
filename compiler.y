@@ -28,7 +28,6 @@ const (
 
 func Contains(l *list.List, item interface{}) bool {
 	for e := l.Front(); e != nil; e = e.Next() {
-fmt.Println("comapre ", e.Value, " and ", item)
 		if e.Value == item {
 			return true
 		}
@@ -172,6 +171,7 @@ letcmd:
 				WriteCode(&$$, "var%s:\n", $2)
 				WriteCode(&$$, "	.word %d\n", $4.numb)
 				WriteCode(&$$, ".section .text\n")
+				numvars.PushBack($2)
 			}
 			WriteCode(&$$, "	ldr r0, =%d\n", $4.numb)
 		} else {
