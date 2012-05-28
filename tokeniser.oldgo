@@ -1,0 +1,100 @@
+package main
+
+import (
+	"fmt"
+	"container/list"
+)
+
+/*
+ * 
+ * keywords: PRINT LET AND OR NOT XOR FOR TO NEXT INPUT 
+ * operators: + - * / ( ) ^ MOD DIV
+ * quote: "
+ * AND OR NOT XOR
+ * number
+ * variable [A-Za-z_]
+ */
+
+const (
+	STATE_GENERAL = iota
+	STATE_TEXT
+	STATE_NUM
+	STATE_STRING
+	
+	STRING = "STRING"
+	NUM = "NUM"
+	SYMBOL = "SYMBOL"
+	TEXT = "TEXT"
+)
+
+type Token struct {
+	value string
+	tokenType string
+}
+
+func Tokenise(line string) *list.List {
+	var token []rune
+	tokens := list.New()
+	state := STATE_GENERAL
+	for index, char := range line {
+		var next rune
+		if index < len(line) - 1 {
+			next = []rune(line)[index + 1]
+		}
+		switch (state) {
+			case STATE_GENERAL:
+				if (char == ' ' || char == '\n' || char == '\t' || char == '\r') {
+					// do nothing
+				} else if (char == '"') {
+					state = STATE_STRING
+					token = make([]rune, 0, len(line))
+				} else if (char >= 'A' && char <= 'Z') || (char >= 'a' && char <= 'z') || char == '_' {
+					state = STATE_TEXT
+					token = make([]rune, 0, len(line))
+					token = append(token, char)
+					if !(next >= 'A' && next <= 'Z') {
+						state = STATE_GENERAL
+						tokens.PushBack(Token{string(token), TEXT})
+					}
+				} else if char >= '0' && char <= '9' {
+					state = STATE_NUM
+					token = make([]rune, 0, len(line))
+					token = append(token, char)
+					if !(next >= '0' && next <= '9') {
+						state = STATE_GENERAL
+						tokens.PushBack(Token{string(token), NUM})
+					}
+				} else {
+					tokens.PushBack(Token{string(char), SYMBOL})
+				}
+			case STATE_TEXT:
+				token = append(token, char)
+				if !((next >= 'A' && next <= 'Z') || (next >= 'a' && next <= 'z') || next == '_') {
+					state = STATE_GENERAL
+					tokens.PushBack(Token{string(token), TEXT})
+				}
+			case STATE_NUM:
+				token = append(token, char)
+				if !(next >= '0' && next <= '9') {
+					state = STATE_GENERAL
+					tokens.PushBack(Token{string(token), NUM})
+				}
+			case STATE_STRING:
+				if (char == '"') {
+					state = STATE_GENERAL
+					tokens.PushBack(Token{string(token), STRING})
+				} else {
+					token = append(token, char)
+				}
+		}
+	}
+	
+	return tokens
+}
+
+func main() {
+	tokens := Tokenise("X + 3 * 5 - ABS(-5) + \"Hello\" + STUFF")
+	for e := tokens.Front(); e != nil; e = e.Next() {
+		fmt.Println("token: ", e.Value)
+	}
+}

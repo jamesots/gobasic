@@ -144,7 +144,7 @@ letstrcmd:
 			WriteCode(&$$, ".section .data\n")
 			WriteCode(&$$, "str%s:\n", $2)
 			WriteCode(&$$, "	.asciz \"%s\"\n", $4.str)
-			WriteCode(&$$, ".section .code\n")
+			WriteCode(&$$, ".section .text\n")
 			// how to store a string?
 		}
 	}
@@ -154,6 +154,10 @@ letcmd:
 	{
 		NewCode(&$$)
 		if $4.state == NUM {
+			WriteCode(&$$, ".section .data\n")
+			WriteCode(&$$, "var%s:\n", $2)
+			WriteCode(&$$, "	.word %d\n", $4.numb)
+			WriteCode(&$$, ".section .text\n")
 			WriteCode(&$$, "	ldr r0, =%d\n", $4.numb)
 		} else {
 			PushAll($4, $$)
@@ -170,23 +174,31 @@ gotocmd:
 	}
 
 printcmd:
-	PRINT expr
+	PRINT numexpr
 	{
 		NewCode(&$$)
 		if $2.state == NUM {
 			WriteCode(&$$, "	ldr r0, =%d\n", $2.numb)
-		} else if $2.state == STRING {
+		} else {
+			PushAll($2, $$)
+		}
+		WriteCode(&$$, "	bl doubledabble\n")
+		WriteCode(&$$, "	bl println\n")
+	}
+|	PRINT strexpr
+	{
+		NewCode(&$$)
+		if $2.state == STRING {
 			varcounter += 0
 			WriteCode(&$$, ".section .data\n")
 			WriteCode(&$$, "str%d:\n", varcounter)
 			WriteCode(&$$, "	.asciz \"%s\"\n", $2.str)
-			WriteCode(&$$, ".section .code\n")
+			WriteCode(&$$, ".section .text\n")
 			WriteCode(&$$, "	ldr r0, =str%d\n", varcounter)
 		} else {
 			PushAll($2, $$)
 		}
-		WriteCode(&$$, "	bl dabble\n")
-		WriteCode(&$$, "	bl print\n")
+		WriteCode(&$$, "	bl println\n")
 	}
 
 expr:
@@ -237,6 +249,7 @@ numexpr:
 	{
 		NewCode(&$$)
 		WriteCode(&$$, "	ldr r0, =var%s\n", $1)
+		WriteCode(&$$, "	ldr r0, [r0]\n")
 	}
 |	numexpr '+' numexpr
 	{

@@ -1,6 +1,7 @@
 .text
 .align 2
 .global print
+.global println
 
 @ input: r0 = address of null terminated string
 
@@ -19,3 +20,15 @@ printloop:
 	svc	0x00000000
 	pop	{r7}
 	bx	lr
+
+println:
+	push	{lr}
+	bl	print
+	ldr	r0, =lfz
+	bl	print
+	pop	{lr}
+	bx	lr
+
+.section .data
+lfz:
+	.asciz	"\n"
