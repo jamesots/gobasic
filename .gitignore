@@ -26,3 +26,6 @@ gobasic
 a.out
 prog
 *.list
+compiler.go
+*.output
+*~

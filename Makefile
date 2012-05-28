@@ -1,15 +1,21 @@
-prog: prog.S dabble.o
-	gcc -nostartfiles -Wa,-ahls=prog.list,-L -ggdb -o prog prog.S dabble.o
+prog: prog.S dabble.o print.o
+	gcc -nostartfiles -Wa,-ahls=prog.list,-L -ggdb -o prog prog.S dabble.o print.o
 
 prog.S: prog.bas gobasic
 	./gobasic prog.bas
 
 clean:
-	rm -if prog prog.o prog.S dabble.o gobasic prog.list dabble.list
+	rm -if prog prog.S *.o gobasic *.list *.output compiler.S compiler.go
 
-gobasic: gobasic.go
+gobasic: gobasic.go compiler.go
 	go build
 
+compiler.go: compiler.y
+	go tool yacc -o compiler.go -v compiler.output compiler.y
 
-dabble.o: dabble.S
-	gcc -Wa,-ahls=dabble.list,-L -c -ggdb -o dabble.o dabble.S
+compiler: compiler.go
+	go build compiler.go
+
+%.o: %.S
+	gcc -Wa,-ahls=$*.list,-L -c -ggdb -o $*.o $*.S
+
