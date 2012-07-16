@@ -1,5 +1,5 @@
-prog: prog.S dabble.o print.o
-	gcc -nostartfiles -Wa,-ahls=prog.list,-L -ggdb -o prog prog.S dabble.o print.o
+prog: prog.S dabble.o print.o math.o
+	gcc -nostartfiles -Wa,-ahls=prog.list,-L -ggdb -o prog prog.S dabble.o print.o math.o
 
 prog.S: prog.bas gobasic
 	./gobasic prog.bas

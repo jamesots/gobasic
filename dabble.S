@@ -16,7 +16,7 @@
 @    int smin = 8; // nscratch-2;    /* speed optimization */
 
 doubledabble:
-	push {r3, r4, r5, r6, r7, r8, r9, r10, r11}
+	push {r4, r5, r6, r7, r8, r9, r10, r11}
 	mov r10, #8          @ r10 = smin
 	ldr r1, =dabble
 	cmp r0, #0
@@ -155,7 +155,7 @@ loopk4:
 	b loopk4
 pastloopk4:
 	ldr r0, =dabble
-	pop {r3, r4, r5, r6, r7, r8, r9, r10, r11}
+	pop {r4, r5, r6, r7, r8, r9, r10, r11}
 	bx lr
 
 

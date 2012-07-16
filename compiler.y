@@ -9,11 +9,19 @@ import (
 )	
 
 var varcounter int
+var forcounter int
 
 var result Code
 
+type LoopInfo struct {
+	varname string
+	limit   int
+	forcount	int
+}
+
 var numvars *list.List
 var strvars *list.List
+var forvars *list.List
 
 type Code struct {
 	code *list.List
@@ -78,22 +86,27 @@ func NewCode(code *Code) {
 %type	<code>	expr
 %type	<code>	printcmd
 %type	<code>	gotocmd
-%type	<code>	letcmd
+%type	<code>	nextcmd
+%type	<code>	letnumcmd
 %type	<code>	letstrcmd
+%type	<code>	fortocmd
 %type	<code>	line
 %type	<code>	cmds
 %type	<code>	cmd
 
 %token	<numb>	NUM
 %token	<code>	PRINT
+%token	<code>	FOR
+%token	<code>	TO
+%token	<code>	NEXT
 %token	<code>	GOTO
 %token	<code>	LET
 %token	<vvar>	VAR
 %token	<vvar>	STRVAR
 %token	<str>	STRING
 
-%left	'+' '-'
-%left	'*'
+%left	'+' '-' 
+%left	'*' '/' '%'
 %left	':'
 
 %%
@@ -140,8 +153,10 @@ cmds:
 
 cmd:
 	printcmd
-|	letcmd
+|	letnumcmd
 |	letstrcmd
+|	fortocmd
+|	nextcmd
 |	gotocmd
 	{
 		NewCode(&$$)
@@ -161,7 +176,7 @@ letstrcmd:
 		}
 	}
 
-letcmd:
+letnumcmd:
 	LET VAR '=' numexpr
 	{
 		NewCode(&$$)
@@ -186,6 +201,77 @@ gotocmd:
 	{
 		NewCode(&$$)
 		WriteCode(&$$, "	bl line%d\n", $2)
+	}
+
+nextcmd:
+	NEXT VAR
+	{
+		fmt.Println("NEXT")
+		fornum := -1
+		for e := forvars.Front(); e != nil; e = e.Next() {
+			forvar := e.Value.(LoopInfo)
+			if forvar.varname == $2 {
+				fornum = forvar.forcount
+			}
+		}
+		if fornum == -1 {
+			fmt.Println("No loop for ", $2)
+			os.Exit(5)
+		}
+		NewCode(&$$)
+		WriteCode(&$$, "	ldr r1, =var%s\n", $2)
+		WriteCode(&$$, "	ldr r0, [r1]\n")
+		WriteCode(&$$, "	add r0, r0, #1\n")
+		WriteCode(&$$, "	str r0, [r1]\n")
+		WriteCode(&$$, "	b forlabel%d\n", fornum)
+		WriteCode(&$$, "forend%d:\n", fornum)
+	}
+
+fortocmd:
+	FOR VAR '=' numexpr TO numexpr
+	{
+		fmt.Println("FOR VAR = x to y:", $2, $4.numb, $6.numb)
+		for e := forvars.Front(); e != nil; e = e.Next() {
+			forvar := e.Value.(LoopInfo)
+			if forvar.varname == $2 {
+				fmt.Println("Already in a loop for ", $2)
+				os.Exit(5)
+			}
+		}
+		forcounter++
+		forvars.PushBack(LoopInfo{
+			$2,
+			$4.numb,
+			forcounter,
+		})
+		NewCode(&$$)
+		WriteCode(&$$, ".section .data\n")
+		WriteCode(&$$, "var%s:\n", $2)
+		WriteCode(&$$, "	.word 0\n")
+		WriteCode(&$$, "forlimit%d:\n", forcounter)
+		WriteCode(&$$, "	.word 0\n")
+		WriteCode(&$$, ".section .text\n")
+		if $4.state == NUM {
+			WriteCode(&$$, "	ldr r0, =%d\n", $4.numb)
+		} else {
+			PushAll($4, $$)
+		}
+		WriteCode(&$$, "	ldr r1, =var%s\n", $2)
+		WriteCode(&$$, "	str r0, [r1]\n")
+		if $6.state == NUM {
+			WriteCode(&$$, "	ldr r0, =%d\n", $6.numb)
+		} else {
+			PushAll($4, $$)
+		}
+		WriteCode(&$$, "	ldr r1, =forlimit%d\n", forcounter)
+		WriteCode(&$$, "	str r0, [r1]\n")
+		WriteCode(&$$, "forlabel%d:\n", forcounter)
+		WriteCode(&$$, "	ldr r1, =forlimit%d\n", forcounter)
+		WriteCode(&$$, "	ldr r0, [r1]\n")
+		WriteCode(&$$, "	ldr r1, =var%s\n", $2)
+		WriteCode(&$$, "	ldr r2, [r1]\n")
+		WriteCode(&$$, "	cmp r2, r0\n")
+		WriteCode(&$$, "	bgt forend%d\n", forcounter)
 	}
 
 printcmd:
@@ -291,7 +377,29 @@ numexpr:
 	{
 		if $1.state == NUM && $3.state == NUM {
 			$$.state = NUM
-			$$.numb = $1.numb + $3.numb
+			$$.numb = $1.numb * $3.numb
+		} else {
+			NewCode(&$$)
+			if $1.state == NUM {
+				WriteCode(&$$, "	ldr r1, =%d\n", $1.numb)
+			} else {
+				PushAll($1, $$)
+				WriteCode(&$$, "	mov r1, r0\n")
+			}
+			if $3.state == NUM {
+				WriteCode(&$$, "	ldr r2, =%d\n", $3.numb)
+			} else {
+				PushAll($3, $$)
+				WriteCode(&$$, "	mov r2, r0\n")
+			}
+ 			WriteCode(&$$, "	mul r0, r2, r1\n")
+		}
+	}
+|	numexpr '/' numexpr
+	{
+		if $1.state == NUM && $3.state == NUM {
+			$$.state = NUM
+			$$.numb = $1.numb / $3.numb
 		} else {
 			NewCode(&$$)
 			if $1.state == NUM {
@@ -300,19 +408,40 @@ numexpr:
 				PushAll($1, $$)
 			}
 			if $3.state == NUM {
-				WriteCode(&$$, "	ldr r1, =%d\n", $1.numb)
+				WriteCode(&$$, "	ldr r1, =%d\n", $3.numb)
 			} else {
 				PushAll($3, $$)
 				WriteCode(&$$, "	mov r1, r0\n")
 			}
- 			WriteCode(&$$, "	mul r0, r0, r1\n")
+ 			WriteCode(&$$, "	bl intdiv\n")
+		}
+	}
+|	numexpr '%' numexpr
+	{
+		if $1.state == NUM && $3.state == NUM {
+			$$.state = NUM
+			$$.numb = $1.numb % $3.numb
+		} else {
+			NewCode(&$$)
+			if $1.state == NUM {
+				WriteCode(&$$, "	ldr r0, =%d\n", $1.numb)
+			} else {
+				PushAll($1, $$)
+			}
+			if $3.state == NUM {
+				WriteCode(&$$, "	ldr r1, =%d\n", $3.numb)
+			} else {
+				PushAll($3, $$)
+				WriteCode(&$$, "	mov r1, r0\n")
+			}
+ 			WriteCode(&$$, "	bl intmod\n")
 		}
 	}
 |	numexpr '-' numexpr
 	{
 		if $1.state == NUM && $3.state == NUM {
 			$$.state = NUM
-			$$.numb = $1.numb + $3.numb
+			$$.numb = $1.numb - $3.numb
 		} else {
 			NewCode(&$$)
 			if $1.state == NUM {
@@ -321,7 +450,7 @@ numexpr:
 				PushAll($1, $$)
 			}
 			if $3.state == NUM {
-				WriteCode(&$$, "	ldr r1, =%d\n", $1.numb)
+				WriteCode(&$$, "	ldr r1, =%d\n", $3.numb)
 			} else {
 				PushAll($3, $$)
 				WriteCode(&$$, "	mov r1, r0\n")
@@ -359,6 +488,18 @@ func (BobLex) Lex(yylval *yySymType) int {
 			yylval.cmd = t
 			return LET
 		}
+		if t == "FOR" {
+			yylval.cmd = t
+			return FOR
+		}
+		if t == "TO" {
+			yylval.cmd = t
+			return TO
+		}
+		if t == "NEXT" {
+			yylval.cmd = t
+			return NEXT
+		}
 		if t[0] >= 'A' && t[0] <= 'Z' {
 			if t[len(t)-1] == '$' {
 				yylval.vvar = t[0:len(t)-1]
@@ -384,9 +525,11 @@ func (BobLex) Error(s string) {
 func Parse(strs []string) {
 	numvars = list.New()
 	strvars = list.New()
+	forvars = list.New()
 	fmt.Println("Start")
 	tok = 0
 	varcounter = 0
+	forcounter = 0
 
 	res := yyParse(BobLex(0))
 	fmt.Println("End ", res)

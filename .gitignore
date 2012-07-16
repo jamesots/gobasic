@@ -21,6 +21,7 @@ _testmain.go
 
 *.exe
 prog.S
+prog2.S
 *.o
 gobasic
 a.out
