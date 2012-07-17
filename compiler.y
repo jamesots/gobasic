@@ -261,7 +261,7 @@ fortocmd:
 		if $6.state == NUM {
 			WriteCode(&$$, "	ldr r0, =%d\n", $6.numb)
 		} else {
-			PushAll($4, $$)
+			PushAll($6, $$)
 		}
 		WriteCode(&$$, "	ldr r1, =forlimit%d\n", forcounter)
 		WriteCode(&$$, "	str r0, [r1]\n")
