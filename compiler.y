@@ -367,17 +367,17 @@ numexpr:
 		} else {
 			NewCode(&$$)
 			if $1.state == NUM {
-				WriteCode(&$$, "	ldr r0, =%d\n", $1.numb)
+				WriteCode(&$$, "	ldr r1, =%d\n", $1.numb)
 			} else {
 				PushAll($1, $$)
-			}
-			if $3.state == NUM {
-				WriteCode(&$$, "	ldr r1, =%d\n", $3.numb)
-			} else {
-				PushAll($3, $$)
 				WriteCode(&$$, "	mov r1, r0\n")
 			}
-			WriteCode(&$$, "	add r0, r0, r1\n")
+			if $3.state == NUM {
+				WriteCode(&$$, "	ldr r0, =%d\n", $3.numb)
+			} else {
+				PushAll($3, $$)
+			}
+			WriteCode(&$$, "	add r0, r1, r0\n")
 		}
 	}
 |	numexpr '*' numexpr
@@ -410,16 +410,17 @@ numexpr:
 		} else {
 			NewCode(&$$)
 			if $1.state == NUM {
-				WriteCode(&$$, "	ldr r0, =%d\n", $1.numb)
+				WriteCode(&$$, "	ldr r2, =%d\n", $1.numb)
 			} else {
 				PushAll($1, $$)
+				WriteCode(&$$, "	mov r2, r0\n")
 			}
 			if $3.state == NUM {
 				WriteCode(&$$, "	ldr r1, =%d\n", $3.numb)
 			} else {
 				PushAll($3, $$)
-				WriteCode(&$$, "	mov r1, r0\n")
 			}
+			WriteCode(&$$, "	mov r0, r2\n")
  			WriteCode(&$$, "	bl intdiv\n")
 		}
 	}
@@ -431,9 +432,10 @@ numexpr:
 		} else {
 			NewCode(&$$)
 			if $1.state == NUM {
-				WriteCode(&$$, "	ldr r0, =%d\n", $1.numb)
+				WriteCode(&$$, "	ldr r2, =%d\n", $1.numb)
 			} else {
 				PushAll($1, $$)
+				WriteCode(&$$, "	mov r2, r0\n")
 			}
 			if $3.state == NUM {
 				WriteCode(&$$, "	ldr r1, =%d\n", $3.numb)
@@ -441,6 +443,7 @@ numexpr:
 				PushAll($3, $$)
 				WriteCode(&$$, "	mov r1, r0\n")
 			}
+			WriteCode(&$$, "	mov r0, r2\n")
  			WriteCode(&$$, "	bl intmod\n")
 		}
 	}
@@ -452,9 +455,10 @@ numexpr:
 		} else {
 			NewCode(&$$)
 			if $1.state == NUM {
-				WriteCode(&$$, "	ldr r0, =%d\n", $1.numb)
+				WriteCode(&$$, "	ldr r2, =%d\n", $1.numb)
 			} else {
 				PushAll($1, $$)
+				WriteCode(&$$, "	mov r2, r0\n")
 			}
 			if $3.state == NUM {
 				WriteCode(&$$, "	ldr r1, =%d\n", $3.numb)
@@ -462,7 +466,8 @@ numexpr:
 				PushAll($3, $$)
 				WriteCode(&$$, "	mov r1, r0\n")
 			}
- 			WriteCode(&$$, "	sub r0, r0, r1\n")
+			WriteCode(&$$, "	mov r0, r2\n")
+			WriteCode(&$$, "	sub r0, r0, r1\n")
 		}
 	}
 
