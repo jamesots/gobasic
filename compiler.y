@@ -10,6 +10,7 @@ import (
 
 var varcounter int
 var forcounter int
+var ifcounter int
 
 var result Code
 
@@ -26,6 +27,7 @@ var forvars *list.List
 type Code struct {
 	code *list.List
 	numb int
+	boo bool
 	state int
 	str string
 }
@@ -86,6 +88,7 @@ func NewCode(code *Code) {
 %type	<code>	line
 %type	<code>	prog
 %type	<code>	numexpr
+%type	<code>	boolexpr
 %type	<code>	strexpr
 %type	<code>	expr
 %type	<code>	printcmd
@@ -94,17 +97,24 @@ func NewCode(code *Code) {
 %type	<code>	letnumcmd
 %type	<code>	letstrcmd
 %type	<code>	fortocmd
+%type	<code>	ifcmd
 %type	<code>	line
 %type	<code>	cmds
 %type	<code>	cmd
 
 %token	<numb>	NUM
+%token	<boo>	BOOL
 %token	<code>	PRINT
+%token	<code>	TRUE
+%token	<code>	FALSE
 %token	<code>	FOR
 %token	<code>	TO
 %token	<code>	NEXT
 %token	<code>	GOTO
 %token	<code>	LET
+%token	<code>	IF
+%token	<code>	THEN
+%token	<code>	NOT
 %token	<vvar>	VAR
 %token	<vvar>	STRVAR
 %token	<str>	STRING
@@ -112,6 +122,8 @@ func NewCode(code *Code) {
 %left	'+' '-' 
 %left	'*' '/' '%'
 %left	':'
+%left	'<' '>' '<=' '>=' '=' '<>'
+%left	'NOT' 'AND' 'OR'
 
 %%
 
@@ -162,6 +174,7 @@ cmd:
 |	fortocmd
 |	nextcmd
 |	gotocmd
+|	ifcmd
 	{
 		NewCode(&$$)
 		PushAll($1, $$)
@@ -297,7 +310,7 @@ printcmd:
 	{
 		NewCode(&$$)
 		if $2.state == STRING {
-			varcounter += 0
+			varcounter += 1
 			WriteCode(&$$, ".section .data\n")
 			WriteCode(&$$, "str%d:\n", varcounter)
 			WriteCode(&$$, "	.asciz \"%s\"\n", $2.str)
@@ -307,6 +320,24 @@ printcmd:
 			PushAll($2, $$)
 		}
 		WriteCode(&$$, "	bl println\n")
+	}
+
+ifcmd:
+	IF boolexpr THEN cmd
+	{
+		NewCode(&$$)
+		if $2.state == BOOL {
+			if $2.boo {
+				PushAll($4, $$)
+			}
+		} else {
+			ifcounter += 1
+			PushAll($2, $$)
+			WriteCode(&$$, "	cmp r0, #0\n")
+			WriteCode(&$$, "	beq ifend%d\n", ifcounter)
+			PushAll($4, $$)
+			WriteCode(&$$, "ifend%d:\n", ifcounter)
+		}
 	}
 
 expr:
@@ -344,6 +375,227 @@ strexpr:
 				WriteCode(&$$, "	mov r1, r0\n")
 			}
 			// add them somehow
+		}
+	}
+
+// i think boolexpr will return a 1 or 0 for true and false
+// or a BOOL
+boolexpr:
+	TRUE
+	{
+		$$.state = BOOL
+		$$.boo = true
+	}
+|	FALSE
+	{
+		$$.state = BOOL
+		$$.boo = false
+	}
+|	numexpr '<' numexpr
+	{
+		if $1.state == NUM && $3.state == NUM {
+			$$.state = BOOL
+			$$.boo = $1.numb < $3.numb
+		} else {
+			NewCode(&$$)
+			if $1.state == NUM {
+				WriteCode(&$$, "	ldr r1, =%d\n", $1.numb)
+			} else {
+				PushAll($1, $$)
+				WriteCode(&$$, "	mov r1, r0\n")
+			}
+			if $3.state == NUM {
+				WriteCode(&$$, "	ldr r0, =%d\n", $3.numb)
+			} else {
+				PushAll($3, $$)
+			}
+			WriteCode(&$$, "	cmp r1, r0\n")
+			WriteCode(&$$, "	movlt r0, #1\n")
+			WriteCode(&$$, "	movge r0, #0\n")
+		}
+	}
+|	numexpr '>' numexpr
+	{
+		if $1.state == NUM && $3.state == NUM {
+			$$.state = BOOL
+			$$.boo = $1.numb > $3.numb
+		} else {
+			NewCode(&$$)
+			if $1.state == NUM {
+				WriteCode(&$$, "	ldr r1, =%d\n", $1.numb)
+			} else {
+				PushAll($1, $$)
+				WriteCode(&$$, "	mov r1, r0\n")
+			}
+			if $3.state == NUM {
+				WriteCode(&$$, "	ldr r0, =%d\n", $3.numb)
+			} else {
+				PushAll($3, $$)
+			}
+			WriteCode(&$$, "	cmp r1, r0\n")
+			WriteCode(&$$, "	movgt r0, #1\n")
+			WriteCode(&$$, "	movle r0, #0\n")
+		}
+	}
+|	numexpr '>=' numexpr
+	{
+		if $1.state == NUM && $3.state == NUM {
+			$$.state = BOOL
+			$$.boo = $1.numb >= $3.numb
+		} else {
+			NewCode(&$$)
+			if $1.state == NUM {
+				WriteCode(&$$, "	ldr r1, =%d\n", $1.numb)
+			} else {
+				PushAll($1, $$)
+				WriteCode(&$$, "	mov r1, r0\n")
+			}
+			if $3.state == NUM {
+				WriteCode(&$$, "	ldr r0, =%d\n", $3.numb)
+			} else {
+				PushAll($3, $$)
+			}
+			WriteCode(&$$, "	cmp r1, r0\n")
+			WriteCode(&$$, "	movge r0, #1\n")
+			WriteCode(&$$, "	movlt r0, #0\n")
+		}
+	}
+|	numexpr '<=' numexpr
+	{
+		if $1.state == NUM && $3.state == NUM {
+			$$.state = BOOL
+			$$.boo = $1.numb <= $3.numb
+		} else {
+			NewCode(&$$)
+			if $1.state == NUM {
+				WriteCode(&$$, "	ldr r1, =%d\n", $1.numb)
+			} else {
+				PushAll($1, $$)
+				WriteCode(&$$, "	mov r1, r0\n")
+			}
+			if $3.state == NUM {
+				WriteCode(&$$, "	ldr r0, =%d\n", $3.numb)
+			} else {
+				PushAll($3, $$)
+			}
+			WriteCode(&$$, "	cmp r1, r0\n")
+			WriteCode(&$$, "	movge r0, #1\n")
+			WriteCode(&$$, "	movlt r0, #0\n")
+		}
+	}
+|	numexpr '<>' numexpr
+	{
+		if $1.state == NUM && $3.state == NUM {
+			$$.state = BOOL
+			$$.boo = $1.numb != $3.numb
+		} else {
+			NewCode(&$$)
+			if $1.state == NUM {
+				WriteCode(&$$, "	ldr r1, =%d\n", $1.numb)
+			} else {
+				PushAll($1, $$)
+				WriteCode(&$$, "	mov r1, r0\n")
+			}
+			if $3.state == NUM {
+				WriteCode(&$$, "	ldr r0, =%d\n", $3.numb)
+			} else {
+				PushAll($3, $$)
+			}
+			WriteCode(&$$, "	cmp r1, r0\n")
+			WriteCode(&$$, "	movne r0, #1\n")
+			WriteCode(&$$, "	moveq r0, #0\n")
+		}
+	}
+|	numexpr '=' numexpr
+	{
+		if $1.state == NUM && $3.state == NUM {
+			$$.state = BOOL
+			$$.boo = $1.numb == $3.numb
+		} else {
+			NewCode(&$$)
+			if $1.state == NUM {
+				WriteCode(&$$, "	ldr r1, =%d\n", $1.numb)
+			} else {
+				PushAll($1, $$)
+				WriteCode(&$$, "	mov r1, r0\n")
+			}
+			if $3.state == NUM {
+				WriteCode(&$$, "	ldr r0, =%d\n", $3.numb)
+			} else {
+				PushAll($3, $$)
+			}
+			WriteCode(&$$, "	cmp r1, r0\n")
+			WriteCode(&$$, "	moveq r0, #1\n")
+			WriteCode(&$$, "	movne r0, #0\n")
+		}
+	}
+|	boolexpr 'AND' boolexpr
+	{
+		if $1.state == BOOL && $3.state == BOOL {
+			$$.state = BOOL
+			$$.boo = $1.boo && $3.boo
+		} else {
+			NewCode(&$$)
+			if $1.state == BOOL {
+				if $1.boo {
+					WriteCode(&$$, "	ldr r1, =1\n")
+				} else {
+					WriteCode(&$$, "	ldr r1, =0\n")
+				}
+			} else {
+				PushAll($1, $$)
+				WriteCode(&$$, "	mov r1, r0\n")
+			}
+			if $3.state == BOOL {
+				if $3.boo {
+					WriteCode(&$$, "	ldr r0, =1\n")
+				} else {
+					WriteCode(&$$, "	ldr r0, =0\n")
+				}
+			} else {
+				PushAll($3, $$)
+			}
+			WriteCode(&$$, "	and r0, r0, r1\n")
+		}
+	}
+|	boolexpr 'OR' boolexpr
+	{
+		if $1.state == BOOL && $3.state == BOOL {
+			$$.state = BOOL
+			$$.boo = $1.boo || $3.boo
+		} else {
+			NewCode(&$$)
+			if $1.state == BOOL {
+				if $1.boo {
+					WriteCode(&$$, "	ldr r1, =1\n")
+				} else {
+					WriteCode(&$$, "	ldr r1, =0\n")
+				}
+			} else {
+				PushAll($1, $$)
+				WriteCode(&$$, "	mov r1, r0\n")
+			}
+			if $3.state == BOOL {
+				if $3.boo {
+					WriteCode(&$$, "	ldr r0, =1\n")
+				} else {
+					WriteCode(&$$, "	ldr r0, =0\n")
+				}
+			} else {
+				PushAll($3, $$)
+			}
+			WriteCode(&$$, "	orr r0, r0, r1\n")
+		}
+	}
+|	NOT boolexpr
+	{
+		if $1.state == BOOL {
+			$$.state = BOOL
+			$$.boo = !$1.boo
+		} else {
+			NewCode(&$$)
+			PushAll($1, $$)
+			WriteCode(&$$, "	mvn r0, r0\n")
 		}
 	}
 
@@ -492,6 +744,18 @@ func (BobLex) Lex(yylval *yySymType) int {
 			yylval.cmd = t
 			return PRINT
 		}
+		if t == "TRUE" {
+			yylval.cmd = t
+			return TRUE
+		}
+		if t == "FALSE" {
+			yylval.cmd = t
+			return FALSE
+		}
+		if t == "NOT" {
+			yylval.cmd = t
+			return NOT
+		}
 		if t == "GOTO" {
 			yylval.cmd = t
 			return GOTO
@@ -503,6 +767,14 @@ func (BobLex) Lex(yylval *yySymType) int {
 		if t == "FOR" {
 			yylval.cmd = t
 			return FOR
+		}
+		if t == "IF" {
+			yylval.cmd = t
+			return IF
+		}
+		if t == "THEN" {
+			yylval.cmd = t
+			return THEN
 		}
 		if t == "TO" {
 			yylval.cmd = t
@@ -542,6 +814,7 @@ func Parse(strs []string) {
 	tok = 0
 	varcounter = 0
 	forcounter = 0
+	ifcounter = 0
 
 	res := yyParse(BobLex(0))
 	fmt.Println("End ", res)
