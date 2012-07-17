@@ -35,11 +35,15 @@ const (
 )
 
 func Contains(l *list.List, item interface{}) bool {
+	fmt.Println("Contains, looking for ", item)
 	for e := l.Front(); e != nil; e = e.Next() {
+		fmt.Println("Compare with: ", e.Value)
 		if e.Value == item {
+			fmt.Println("Found")
 			return true
 		}
 	}
+	fmt.Println("Not found")
 	return false
 }
 
@@ -180,14 +184,14 @@ letnumcmd:
 	LET VAR '=' numexpr
 	{
 		NewCode(&$$)
+		if !Contains(numvars, $2) {
+			WriteCode(&$$, ".section .data\n")
+			WriteCode(&$$, "var%s:\n", $2)
+			WriteCode(&$$, "	.word %d\n", $4.numb)
+			WriteCode(&$$, ".section .text\n")
+			numvars.PushBack($2)
+		}
 		if $4.state == NUM {
-			if !Contains(numvars, $2) {
-				WriteCode(&$$, ".section .data\n")
-				WriteCode(&$$, "var%s:\n", $2)
-				WriteCode(&$$, "	.word %d\n", $4.numb)
-				WriteCode(&$$, ".section .text\n")
-				numvars.PushBack($2)
-			}
 			WriteCode(&$$, "	ldr r0, =%d\n", $4.numb)
 		} else {
 			PushAll($4, $$)
@@ -246,8 +250,11 @@ fortocmd:
 		})
 		NewCode(&$$)
 		WriteCode(&$$, ".section .data\n")
-		WriteCode(&$$, "var%s:\n", $2)
-		WriteCode(&$$, "	.word 0\n")
+		if !Contains(numvars, $2) {
+			WriteCode(&$$, "var%s:\n", $2)
+			WriteCode(&$$, "	.word 0\n")
+			numvars.PushBack($2)
+		}
 		WriteCode(&$$, "forlimit%d:\n", forcounter)
 		WriteCode(&$$, "	.word 0\n")
 		WriteCode(&$$, ".section .text\n")
