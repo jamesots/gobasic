@@ -115,6 +115,8 @@ func NewCode(code *Code) {
 %token	<code>	IF
 %token	<code>	THEN
 %token	<code>	NOT
+%token	<code>	AND
+%token	<code>	OR
 %token	<vvar>	VAR
 %token	<vvar>	STRVAR
 %token	<str>	STRING
@@ -123,7 +125,7 @@ func NewCode(code *Code) {
 %left	'*' '/' '%'
 %left	':'
 %left	'<' '>' '<=' '>=' '=' '<>'
-%left	'NOT' 'AND' 'OR'
+%left	NOT AND OR
 
 %%
 
@@ -529,7 +531,7 @@ boolexpr:
 			WriteCode(&$$, "	movne r0, #0\n")
 		}
 	}
-|	boolexpr 'AND' boolexpr
+|	boolexpr AND boolexpr
 	{
 		if $1.state == BOOL && $3.state == BOOL {
 			$$.state = BOOL
@@ -558,7 +560,7 @@ boolexpr:
 			WriteCode(&$$, "	and r0, r0, r1\n")
 		}
 	}
-|	boolexpr 'OR' boolexpr
+|	boolexpr OR boolexpr
 	{
 		if $1.state == BOOL && $3.state == BOOL {
 			$$.state = BOOL
@@ -751,6 +753,14 @@ func (BobLex) Lex(yylval *yySymType) int {
 		if t == "FALSE" {
 			yylval.cmd = t
 			return FALSE
+		}
+		if t == "AND" {
+			yylval.cmd = t
+			return AND
+		}
+		if t == "OR" {
+			yylval.cmd = t
+			return OR
 		}
 		if t == "NOT" {
 			yylval.cmd = t
