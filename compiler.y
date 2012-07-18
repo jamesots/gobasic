@@ -121,11 +121,12 @@ func NewCode(code *Code) {
 %token	<vvar>	STRVAR
 %token	<str>	STRING
 
+%left	'<' '>' '<=' '>=' '=' '<>'
 %left	'+' '-' 
 %left	'*' '/' '%'
 %left	':'
-%left	'<' '>' '<=' '>=' '=' '<>'
-%left	NOT AND OR
+%left	AND OR
+%right	NOT
 
 %%
 
@@ -393,6 +394,19 @@ boolexpr:
 		$$.state = BOOL
 		$$.boo = false
 	}
+|	'(' boolexpr ')'
+	{
+		NewCode(&$$)
+		if $2.state == BOOL {
+			if $2.boo {
+				WriteCode(&$$, "	ldr r0, =1\n")
+			} else {
+				WriteCode(&$$, "	ldr r0, =0\n")
+			}
+		} else {
+			PushAll($2, $$)
+		}
+	}
 |	numexpr '<' numexpr
 	{
 		if $1.state == NUM && $3.state == NUM {
@@ -591,12 +605,12 @@ boolexpr:
 	}
 |	NOT boolexpr
 	{
-		if $1.state == BOOL {
+		if $2.state == BOOL {
 			$$.state = BOOL
-			$$.boo = !$1.boo
+			$$.boo = !$2.boo
 		} else {
 			NewCode(&$$)
-			PushAll($1, $$)
+			PushAll($2, $$)
 			WriteCode(&$$, "	mvn r0, r0\n")
 		}
 	}
