@@ -67,6 +67,32 @@ func WriteCode(code *Code, format string, a ...interface{}) {
 	code.code.PushBack(res)
 }
 
+func LoadNum(to Code, code Code, reg int) {
+	if code.state == NUM {
+		WriteCode(&to, "	ldr r%d, =%d\n", reg, code.numb)
+	} else {
+		PushAll(code, to)
+		if reg != 0 {
+			WriteCode(&to, "	mov r%d, r0\n", reg)
+		}
+	}
+}
+
+func LoadBool(to Code, code Code, reg int) {
+	if code.state == BOOL {
+		if code.boo {
+			WriteCode(&to, "	ldr r%d, =1\n", reg)
+		} else {
+			WriteCode(&to, "	ldr r%d, =0\n", reg)
+		}
+	} else {
+		PushAll(code, to)
+		if reg != 0 {
+			WriteCode(&to, "	mov r%d, r0\n", reg)
+		}
+	}
+}
+
 func NewCode(code *Code) {
 	code.code = list.New()
 	code.state = CODE
@@ -207,11 +233,7 @@ letnumcmd:
 			WriteCode(&$$, ".section .text\n")
 			numvars.PushBack($2)
 		}
-		if $4.state == NUM {
-			WriteCode(&$$, "	ldr r0, =%d\n", $4.numb)
-		} else {
-			PushAll($4, $$)
-		}
+		LoadNum($$, $4, 0)
 		WriteCode(&$$, "	ldr r1, =var%s\n", $2)
 		WriteCode(&$$, "	str r0, [r1]\n")
 	}
@@ -274,18 +296,10 @@ fortocmd:
 		WriteCode(&$$, "forlimit%d:\n", forcounter)
 		WriteCode(&$$, "	.word 0\n")
 		WriteCode(&$$, ".section .text\n")
-		if $4.state == NUM {
-			WriteCode(&$$, "	ldr r0, =%d\n", $4.numb)
-		} else {
-			PushAll($4, $$)
-		}
+		LoadNum($$, $4, 0)
 		WriteCode(&$$, "	ldr r1, =var%s\n", $2)
 		WriteCode(&$$, "	str r0, [r1]\n")
-		if $6.state == NUM {
-			WriteCode(&$$, "	ldr r0, =%d\n", $6.numb)
-		} else {
-			PushAll($6, $$)
-		}
+		LoadNum($$, $6, 0)
 		WriteCode(&$$, "	ldr r1, =forlimit%d\n", forcounter)
 		WriteCode(&$$, "	str r0, [r1]\n")
 		WriteCode(&$$, "forlabel%d:\n", forcounter)
@@ -397,15 +411,7 @@ boolexpr:
 |	'(' boolexpr ')'
 	{
 		NewCode(&$$)
-		if $2.state == BOOL {
-			if $2.boo {
-				WriteCode(&$$, "	ldr r0, =1\n")
-			} else {
-				WriteCode(&$$, "	ldr r0, =0\n")
-			}
-		} else {
-			PushAll($2, $$)
-		}
+		LoadBool($$, $2, 0)
 	}
 |	numexpr '<' numexpr
 	{
@@ -414,17 +420,8 @@ boolexpr:
 			$$.boo = $1.numb < $3.numb
 		} else {
 			NewCode(&$$)
-			if $1.state == NUM {
-				WriteCode(&$$, "	ldr r1, =%d\n", $1.numb)
-			} else {
-				PushAll($1, $$)
-				WriteCode(&$$, "	mov r1, r0\n")
-			}
-			if $3.state == NUM {
-				WriteCode(&$$, "	ldr r0, =%d\n", $3.numb)
-			} else {
-				PushAll($3, $$)
-			}
+			LoadNum($$, $1, 1)
+			LoadNum($$, $3, 0)
 			WriteCode(&$$, "	cmp r1, r0\n")
 			WriteCode(&$$, "	movlt r0, #1\n")
 			WriteCode(&$$, "	movge r0, #0\n")
@@ -437,17 +434,8 @@ boolexpr:
 			$$.boo = $1.numb > $3.numb
 		} else {
 			NewCode(&$$)
-			if $1.state == NUM {
-				WriteCode(&$$, "	ldr r1, =%d\n", $1.numb)
-			} else {
-				PushAll($1, $$)
-				WriteCode(&$$, "	mov r1, r0\n")
-			}
-			if $3.state == NUM {
-				WriteCode(&$$, "	ldr r0, =%d\n", $3.numb)
-			} else {
-				PushAll($3, $$)
-			}
+			LoadNum($$, $1, 1)
+			LoadNum($$, $3, 0)
 			WriteCode(&$$, "	cmp r1, r0\n")
 			WriteCode(&$$, "	movgt r0, #1\n")
 			WriteCode(&$$, "	movle r0, #0\n")
@@ -460,17 +448,8 @@ boolexpr:
 			$$.boo = $1.numb >= $3.numb
 		} else {
 			NewCode(&$$)
-			if $1.state == NUM {
-				WriteCode(&$$, "	ldr r1, =%d\n", $1.numb)
-			} else {
-				PushAll($1, $$)
-				WriteCode(&$$, "	mov r1, r0\n")
-			}
-			if $3.state == NUM {
-				WriteCode(&$$, "	ldr r0, =%d\n", $3.numb)
-			} else {
-				PushAll($3, $$)
-			}
+			LoadNum($$, $1, 1)
+			LoadNum($$, $3, 0)
 			WriteCode(&$$, "	cmp r1, r0\n")
 			WriteCode(&$$, "	movge r0, #1\n")
 			WriteCode(&$$, "	movlt r0, #0\n")
@@ -483,17 +462,8 @@ boolexpr:
 			$$.boo = $1.numb <= $3.numb
 		} else {
 			NewCode(&$$)
-			if $1.state == NUM {
-				WriteCode(&$$, "	ldr r1, =%d\n", $1.numb)
-			} else {
-				PushAll($1, $$)
-				WriteCode(&$$, "	mov r1, r0\n")
-			}
-			if $3.state == NUM {
-				WriteCode(&$$, "	ldr r0, =%d\n", $3.numb)
-			} else {
-				PushAll($3, $$)
-			}
+			LoadNum($$, $1, 1)
+			LoadNum($$, $3, 0)
 			WriteCode(&$$, "	cmp r1, r0\n")
 			WriteCode(&$$, "	movge r0, #1\n")
 			WriteCode(&$$, "	movlt r0, #0\n")
@@ -506,17 +476,8 @@ boolexpr:
 			$$.boo = $1.numb != $3.numb
 		} else {
 			NewCode(&$$)
-			if $1.state == NUM {
-				WriteCode(&$$, "	ldr r1, =%d\n", $1.numb)
-			} else {
-				PushAll($1, $$)
-				WriteCode(&$$, "	mov r1, r0\n")
-			}
-			if $3.state == NUM {
-				WriteCode(&$$, "	ldr r0, =%d\n", $3.numb)
-			} else {
-				PushAll($3, $$)
-			}
+			LoadNum($$, $1, 1)
+			LoadNum($$, $3, 0)
 			WriteCode(&$$, "	cmp r1, r0\n")
 			WriteCode(&$$, "	movne r0, #1\n")
 			WriteCode(&$$, "	moveq r0, #0\n")
@@ -529,17 +490,8 @@ boolexpr:
 			$$.boo = $1.numb == $3.numb
 		} else {
 			NewCode(&$$)
-			if $1.state == NUM {
-				WriteCode(&$$, "	ldr r1, =%d\n", $1.numb)
-			} else {
-				PushAll($1, $$)
-				WriteCode(&$$, "	mov r1, r0\n")
-			}
-			if $3.state == NUM {
-				WriteCode(&$$, "	ldr r0, =%d\n", $3.numb)
-			} else {
-				PushAll($3, $$)
-			}
+			LoadNum($$, $1, 1)
+			LoadNum($$, $3, 0)
 			WriteCode(&$$, "	cmp r1, r0\n")
 			WriteCode(&$$, "	moveq r0, #1\n")
 			WriteCode(&$$, "	movne r0, #0\n")
@@ -552,25 +504,8 @@ boolexpr:
 			$$.boo = $1.boo && $3.boo
 		} else {
 			NewCode(&$$)
-			if $1.state == BOOL {
-				if $1.boo {
-					WriteCode(&$$, "	ldr r1, =1\n")
-				} else {
-					WriteCode(&$$, "	ldr r1, =0\n")
-				}
-			} else {
-				PushAll($1, $$)
-				WriteCode(&$$, "	mov r1, r0\n")
-			}
-			if $3.state == BOOL {
-				if $3.boo {
-					WriteCode(&$$, "	ldr r0, =1\n")
-				} else {
-					WriteCode(&$$, "	ldr r0, =0\n")
-				}
-			} else {
-				PushAll($3, $$)
-			}
+			LoadBool($$, $1, 1)
+			LoadBool($$, $3, 0)
 			WriteCode(&$$, "	and r0, r0, r1\n")
 		}
 	}
@@ -581,25 +516,8 @@ boolexpr:
 			$$.boo = $1.boo || $3.boo
 		} else {
 			NewCode(&$$)
-			if $1.state == BOOL {
-				if $1.boo {
-					WriteCode(&$$, "	ldr r1, =1\n")
-				} else {
-					WriteCode(&$$, "	ldr r1, =0\n")
-				}
-			} else {
-				PushAll($1, $$)
-				WriteCode(&$$, "	mov r1, r0\n")
-			}
-			if $3.state == BOOL {
-				if $3.boo {
-					WriteCode(&$$, "	ldr r0, =1\n")
-				} else {
-					WriteCode(&$$, "	ldr r0, =0\n")
-				}
-			} else {
-				PushAll($3, $$)
-			}
+			LoadBool($$, $1, 1)
+			LoadBool($$, $3, 0)
 			WriteCode(&$$, "	orr r0, r0, r1\n")
 		}
 	}
@@ -634,17 +552,8 @@ numexpr:
 			$$.numb = $1.numb + $3.numb
 		} else {
 			NewCode(&$$)
-			if $1.state == NUM {
-				WriteCode(&$$, "	ldr r1, =%d\n", $1.numb)
-			} else {
-				PushAll($1, $$)
-				WriteCode(&$$, "	mov r1, r0\n")
-			}
-			if $3.state == NUM {
-				WriteCode(&$$, "	ldr r0, =%d\n", $3.numb)
-			} else {
-				PushAll($3, $$)
-			}
+			LoadNum($$, $1, 1)
+			LoadNum($$, $3, 0)
 			WriteCode(&$$, "	add r0, r1, r0\n")
 		}
 	}
@@ -655,18 +564,8 @@ numexpr:
 			$$.numb = $1.numb * $3.numb
 		} else {
 			NewCode(&$$)
-			if $1.state == NUM {
-				WriteCode(&$$, "	ldr r1, =%d\n", $1.numb)
-			} else {
-				PushAll($1, $$)
-				WriteCode(&$$, "	mov r1, r0\n")
-			}
-			if $3.state == NUM {
-				WriteCode(&$$, "	ldr r2, =%d\n", $3.numb)
-			} else {
-				PushAll($3, $$)
-				WriteCode(&$$, "	mov r2, r0\n")
-			}
+			LoadNum($$, $1, 1)
+			LoadNum($$, $3, 2)
  			WriteCode(&$$, "	mul r0, r2, r1\n")
 		}
 	}
@@ -677,17 +576,8 @@ numexpr:
 			$$.numb = $1.numb / $3.numb
 		} else {
 			NewCode(&$$)
-			if $1.state == NUM {
-				WriteCode(&$$, "	ldr r2, =%d\n", $1.numb)
-			} else {
-				PushAll($1, $$)
-				WriteCode(&$$, "	mov r2, r0\n")
-			}
-			if $3.state == NUM {
-				WriteCode(&$$, "	ldr r1, =%d\n", $3.numb)
-			} else {
-				PushAll($3, $$)
-			}
+			LoadNum($$, $1, 2)
+			LoadNum($$, $3, 1)
 			WriteCode(&$$, "	mov r0, r2\n")
  			WriteCode(&$$, "	bl intdiv\n")
 		}
@@ -699,18 +589,8 @@ numexpr:
 			$$.numb = $1.numb % $3.numb
 		} else {
 			NewCode(&$$)
-			if $1.state == NUM {
-				WriteCode(&$$, "	ldr r2, =%d\n", $1.numb)
-			} else {
-				PushAll($1, $$)
-				WriteCode(&$$, "	mov r2, r0\n")
-			}
-			if $3.state == NUM {
-				WriteCode(&$$, "	ldr r1, =%d\n", $3.numb)
-			} else {
-				PushAll($3, $$)
-				WriteCode(&$$, "	mov r1, r0\n")
-			}
+			LoadNum($$, $1, 2)
+			LoadNum($$, $3, 1)
 			WriteCode(&$$, "	mov r0, r2\n")
  			WriteCode(&$$, "	bl intmod\n")
 		}
@@ -722,18 +602,8 @@ numexpr:
 			$$.numb = $1.numb - $3.numb
 		} else {
 			NewCode(&$$)
-			if $1.state == NUM {
-				WriteCode(&$$, "	ldr r2, =%d\n", $1.numb)
-			} else {
-				PushAll($1, $$)
-				WriteCode(&$$, "	mov r2, r0\n")
-			}
-			if $3.state == NUM {
-				WriteCode(&$$, "	ldr r1, =%d\n", $3.numb)
-			} else {
-				PushAll($3, $$)
-				WriteCode(&$$, "	mov r1, r0\n")
-			}
+			LoadNum($$, $1, 2)
+			LoadNum($$, $3, 1)
 			WriteCode(&$$, "	mov r0, r2\n")
 			WriteCode(&$$, "	sub r0, r0, r1\n")
 		}
