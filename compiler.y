@@ -62,18 +62,18 @@ func PrintAll(file *os.File, from Code) {
 	}
 }
 
-func WriteCode(code *Code, format string, a ...interface{}) {
+func WriteCode(code Code, format string, a ...interface{}) {
 	res := fmt.Sprintf(format, a...)
 	code.code.PushBack(res)
 }
 
 func LoadNum(to Code, code Code, reg int) {
 	if code.state == NUM {
-		WriteCode(&to, "	ldr r%d, =%d\n", reg, code.numb)
+		WriteCode(to, "	ldr r%d, =%d\n", reg, code.numb)
 	} else {
 		PushAll(code, to)
 		if reg != 0 {
-			WriteCode(&to, "	mov r%d, r0\n", reg)
+			WriteCode(to, "	mov r%d, r0\n", reg)
 		}
 	}
 }
@@ -81,14 +81,14 @@ func LoadNum(to Code, code Code, reg int) {
 func LoadBool(to Code, code Code, reg int) {
 	if code.state == BOOL {
 		if code.boo {
-			WriteCode(&to, "	ldr r%d, =1\n", reg)
+			WriteCode(to, "	ldr r%d, =1\n", reg)
 		} else {
-			WriteCode(&to, "	ldr r%d, =0\n", reg)
+			WriteCode(to, "	ldr r%d, =0\n", reg)
 		}
 	} else {
 		PushAll(code, to)
 		if reg != 0 {
-			WriteCode(&to, "	mov r%d, r0\n", reg)
+			WriteCode(to, "	mov r%d, r0\n", reg)
 		}
 	}
 }
@@ -179,7 +179,7 @@ line:
 	NUM cmds
 	{
 		NewCode(&$$)
-		WriteCode(&$$, "line%d:\n", $1)
+		WriteCode($$, "line%d:\n", $1)
 		PushAll($2, $$)
 	}
 
@@ -214,10 +214,10 @@ letstrcmd:
 	{
 		if $4.state == STRING {
 			NewCode(&$$)
-			WriteCode(&$$, ".section .data\n")
-			WriteCode(&$$, "str%s:\n", $2)
-			WriteCode(&$$, "	.asciz \"%s\"\n", $4.str)
-			WriteCode(&$$, ".section .text\n")
+			WriteCode($$, ".section .data\n")
+			WriteCode($$, "str%s:\n", $2)
+			WriteCode($$, "	.asciz \"%s\"\n", $4.str)
+			WriteCode($$, ".section .text\n")
 			// how to store a string?
 		}
 	}
@@ -227,22 +227,22 @@ letnumcmd:
 	{
 		NewCode(&$$)
 		if !Contains(numvars, $2) {
-			WriteCode(&$$, ".section .data\n")
-			WriteCode(&$$, "var%s:\n", $2)
-			WriteCode(&$$, "	.word %d\n", $4.numb)
-			WriteCode(&$$, ".section .text\n")
+			WriteCode($$, ".section .data\n")
+			WriteCode($$, "var%s:\n", $2)
+			WriteCode($$, "	.word %d\n", $4.numb)
+			WriteCode($$, ".section .text\n")
 			numvars.PushBack($2)
 		}
 		LoadNum($$, $4, 0)
-		WriteCode(&$$, "	ldr r1, =var%s\n", $2)
-		WriteCode(&$$, "	str r0, [r1]\n")
+		WriteCode($$, "	ldr r1, =var%s\n", $2)
+		WriteCode($$, "	str r0, [r1]\n")
 	}
 
 gotocmd:
 	GOTO NUM
 	{
 		NewCode(&$$)
-		WriteCode(&$$, "	bl line%d\n", $2)
+		WriteCode($$, "	bl line%d\n", $2)
 	}
 
 nextcmd:
@@ -261,12 +261,12 @@ nextcmd:
 			os.Exit(5)
 		}
 		NewCode(&$$)
-		WriteCode(&$$, "	ldr r1, =var%s\n", $2)
-		WriteCode(&$$, "	ldr r0, [r1]\n")
-		WriteCode(&$$, "	add r0, r0, #1\n")
-		WriteCode(&$$, "	str r0, [r1]\n")
-		WriteCode(&$$, "	b forlabel%d\n", fornum)
-		WriteCode(&$$, "forend%d:\n", fornum)
+		WriteCode($$, "	ldr r1, =var%s\n", $2)
+		WriteCode($$, "	ldr r0, [r1]\n")
+		WriteCode($$, "	add r0, r0, #1\n")
+		WriteCode($$, "	str r0, [r1]\n")
+		WriteCode($$, "	b forlabel%d\n", fornum)
+		WriteCode($$, "forend%d:\n", fornum)
 	}
 
 fortocmd:
@@ -287,28 +287,28 @@ fortocmd:
 			forcounter,
 		})
 		NewCode(&$$)
-		WriteCode(&$$, ".section .data\n")
+		WriteCode($$, ".section .data\n")
 		if !Contains(numvars, $2) {
-			WriteCode(&$$, "var%s:\n", $2)
-			WriteCode(&$$, "	.word 0\n")
+			WriteCode($$, "var%s:\n", $2)
+			WriteCode($$, "	.word 0\n")
 			numvars.PushBack($2)
 		}
-		WriteCode(&$$, "forlimit%d:\n", forcounter)
-		WriteCode(&$$, "	.word 0\n")
-		WriteCode(&$$, ".section .text\n")
+		WriteCode($$, "forlimit%d:\n", forcounter)
+		WriteCode($$, "	.word 0\n")
+		WriteCode($$, ".section .text\n")
 		LoadNum($$, $4, 0)
-		WriteCode(&$$, "	ldr r1, =var%s\n", $2)
-		WriteCode(&$$, "	str r0, [r1]\n")
+		WriteCode($$, "	ldr r1, =var%s\n", $2)
+		WriteCode($$, "	str r0, [r1]\n")
 		LoadNum($$, $6, 0)
-		WriteCode(&$$, "	ldr r1, =forlimit%d\n", forcounter)
-		WriteCode(&$$, "	str r0, [r1]\n")
-		WriteCode(&$$, "forlabel%d:\n", forcounter)
-		WriteCode(&$$, "	ldr r1, =forlimit%d\n", forcounter)
-		WriteCode(&$$, "	ldr r0, [r1]\n")
-		WriteCode(&$$, "	ldr r1, =var%s\n", $2)
-		WriteCode(&$$, "	ldr r2, [r1]\n")
-		WriteCode(&$$, "	cmp r2, r0\n")
-		WriteCode(&$$, "	bgt forend%d\n", forcounter)
+		WriteCode($$, "	ldr r1, =forlimit%d\n", forcounter)
+		WriteCode($$, "	str r0, [r1]\n")
+		WriteCode($$, "forlabel%d:\n", forcounter)
+		WriteCode($$, "	ldr r1, =forlimit%d\n", forcounter)
+		WriteCode($$, "	ldr r0, [r1]\n")
+		WriteCode($$, "	ldr r1, =var%s\n", $2)
+		WriteCode($$, "	ldr r2, [r1]\n")
+		WriteCode($$, "	cmp r2, r0\n")
+		WriteCode($$, "	bgt forend%d\n", forcounter)
 	}
 
 printcmd:
@@ -316,27 +316,27 @@ printcmd:
 	{
 		NewCode(&$$)
 		if $2.state == NUM {
-			WriteCode(&$$, "	ldr r0, =%d\n", $2.numb)
+			WriteCode($$, "	ldr r0, =%d\n", $2.numb)
 		} else {
 			PushAll($2, $$)
 		}
-		WriteCode(&$$, "	bl doubledabble\n")
-		WriteCode(&$$, "	bl println\n")
+		WriteCode($$, "	bl doubledabble\n")
+		WriteCode($$, "	bl println\n")
 	}
 |	PRINT strexpr
 	{
 		NewCode(&$$)
 		if $2.state == STRING {
 			varcounter += 1
-			WriteCode(&$$, ".section .data\n")
-			WriteCode(&$$, "str%d:\n", varcounter)
-			WriteCode(&$$, "	.asciz \"%s\"\n", $2.str)
-			WriteCode(&$$, ".section .text\n")
-			WriteCode(&$$, "	ldr r0, =str%d\n", varcounter)
+			WriteCode($$, ".section .data\n")
+			WriteCode($$, "str%d:\n", varcounter)
+			WriteCode($$, "	.asciz \"%s\"\n", $2.str)
+			WriteCode($$, ".section .text\n")
+			WriteCode($$, "	ldr r0, =str%d\n", varcounter)
 		} else {
 			PushAll($2, $$)
 		}
-		WriteCode(&$$, "	bl println\n")
+		WriteCode($$, "	bl println\n")
 	}
 
 ifcmd:
@@ -350,10 +350,10 @@ ifcmd:
 		} else {
 			ifcounter += 1
 			PushAll($2, $$)
-			WriteCode(&$$, "	cmp r0, #0\n")
-			WriteCode(&$$, "	beq ifend%d\n", ifcounter)
+			WriteCode($$, "	cmp r0, #0\n")
+			WriteCode($$, "	beq ifend%d\n", ifcounter)
 			PushAll($4, $$)
-			WriteCode(&$$, "ifend%d:\n", ifcounter)
+			WriteCode($$, "ifend%d:\n", ifcounter)
 		}
 	}
 
@@ -370,7 +370,7 @@ strexpr:
 |	STRVAR
 	{
 		NewCode(&$$)
-		WriteCode(&$$, "	ldr r0, =str%s\n", $1)
+		WriteCode($$, "	ldr r0, =str%s\n", $1)
 	}
 |	strexpr '+' strexpr
 	{
@@ -389,7 +389,7 @@ strexpr:
 				// add something to STRING
 			} else {
 				PushAll($3, $$)
-				WriteCode(&$$, "	mov r1, r0\n")
+				WriteCode($$, "	mov r1, r0\n")
 			}
 			// add them somehow
 		}
@@ -422,9 +422,9 @@ boolexpr:
 			NewCode(&$$)
 			LoadNum($$, $1, 1)
 			LoadNum($$, $3, 0)
-			WriteCode(&$$, "	cmp r1, r0\n")
-			WriteCode(&$$, "	movlt r0, #1\n")
-			WriteCode(&$$, "	movge r0, #0\n")
+			WriteCode($$, "	cmp r1, r0\n")
+			WriteCode($$, "	movlt r0, #1\n")
+			WriteCode($$, "	movge r0, #0\n")
 		}
 	}
 |	numexpr '>' numexpr
@@ -436,9 +436,9 @@ boolexpr:
 			NewCode(&$$)
 			LoadNum($$, $1, 1)
 			LoadNum($$, $3, 0)
-			WriteCode(&$$, "	cmp r1, r0\n")
-			WriteCode(&$$, "	movgt r0, #1\n")
-			WriteCode(&$$, "	movle r0, #0\n")
+			WriteCode($$, "	cmp r1, r0\n")
+			WriteCode($$, "	movgt r0, #1\n")
+			WriteCode($$, "	movle r0, #0\n")
 		}
 	}
 |	numexpr '>=' numexpr
@@ -450,9 +450,9 @@ boolexpr:
 			NewCode(&$$)
 			LoadNum($$, $1, 1)
 			LoadNum($$, $3, 0)
-			WriteCode(&$$, "	cmp r1, r0\n")
-			WriteCode(&$$, "	movge r0, #1\n")
-			WriteCode(&$$, "	movlt r0, #0\n")
+			WriteCode($$, "	cmp r1, r0\n")
+			WriteCode($$, "	movge r0, #1\n")
+			WriteCode($$, "	movlt r0, #0\n")
 		}
 	}
 |	numexpr '<=' numexpr
@@ -464,9 +464,9 @@ boolexpr:
 			NewCode(&$$)
 			LoadNum($$, $1, 1)
 			LoadNum($$, $3, 0)
-			WriteCode(&$$, "	cmp r1, r0\n")
-			WriteCode(&$$, "	movge r0, #1\n")
-			WriteCode(&$$, "	movlt r0, #0\n")
+			WriteCode($$, "	cmp r1, r0\n")
+			WriteCode($$, "	movge r0, #1\n")
+			WriteCode($$, "	movlt r0, #0\n")
 		}
 	}
 |	numexpr '<>' numexpr
@@ -478,9 +478,9 @@ boolexpr:
 			NewCode(&$$)
 			LoadNum($$, $1, 1)
 			LoadNum($$, $3, 0)
-			WriteCode(&$$, "	cmp r1, r0\n")
-			WriteCode(&$$, "	movne r0, #1\n")
-			WriteCode(&$$, "	moveq r0, #0\n")
+			WriteCode($$, "	cmp r1, r0\n")
+			WriteCode($$, "	movne r0, #1\n")
+			WriteCode($$, "	moveq r0, #0\n")
 		}
 	}
 |	numexpr '=' numexpr
@@ -492,9 +492,9 @@ boolexpr:
 			NewCode(&$$)
 			LoadNum($$, $1, 1)
 			LoadNum($$, $3, 0)
-			WriteCode(&$$, "	cmp r1, r0\n")
-			WriteCode(&$$, "	moveq r0, #1\n")
-			WriteCode(&$$, "	movne r0, #0\n")
+			WriteCode($$, "	cmp r1, r0\n")
+			WriteCode($$, "	moveq r0, #1\n")
+			WriteCode($$, "	movne r0, #0\n")
 		}
 	}
 |	boolexpr AND boolexpr
@@ -506,7 +506,7 @@ boolexpr:
 			NewCode(&$$)
 			LoadBool($$, $1, 1)
 			LoadBool($$, $3, 0)
-			WriteCode(&$$, "	and r0, r0, r1\n")
+			WriteCode($$, "	and r0, r0, r1\n")
 		}
 	}
 |	boolexpr OR boolexpr
@@ -518,7 +518,7 @@ boolexpr:
 			NewCode(&$$)
 			LoadBool($$, $1, 1)
 			LoadBool($$, $3, 0)
-			WriteCode(&$$, "	orr r0, r0, r1\n")
+			WriteCode($$, "	orr r0, r0, r1\n")
 		}
 	}
 |	NOT boolexpr
@@ -529,7 +529,7 @@ boolexpr:
 		} else {
 			NewCode(&$$)
 			PushAll($2, $$)
-			WriteCode(&$$, "	mvn r0, r0\n")
+			WriteCode($$, "	mvn r0, r0\n")
 		}
 	}
 
@@ -542,8 +542,8 @@ numexpr:
 |	VAR
 	{
 		NewCode(&$$)
-		WriteCode(&$$, "	ldr r0, =var%s\n", $1)
-		WriteCode(&$$, "	ldr r0, [r0]\n")
+		WriteCode($$, "	ldr r0, =var%s\n", $1)
+		WriteCode($$, "	ldr r0, [r0]\n")
 	}
 |	numexpr '+' numexpr
 	{
@@ -554,7 +554,7 @@ numexpr:
 			NewCode(&$$)
 			LoadNum($$, $1, 1)
 			LoadNum($$, $3, 0)
-			WriteCode(&$$, "	add r0, r1, r0\n")
+			WriteCode($$, "	add r0, r1, r0\n")
 		}
 	}
 |	numexpr '*' numexpr
@@ -566,7 +566,7 @@ numexpr:
 			NewCode(&$$)
 			LoadNum($$, $1, 1)
 			LoadNum($$, $3, 2)
- 			WriteCode(&$$, "	mul r0, r2, r1\n")
+ 			WriteCode($$, "	mul r0, r2, r1\n")
 		}
 	}
 |	numexpr '/' numexpr
@@ -578,8 +578,8 @@ numexpr:
 			NewCode(&$$)
 			LoadNum($$, $1, 2)
 			LoadNum($$, $3, 1)
-			WriteCode(&$$, "	mov r0, r2\n")
- 			WriteCode(&$$, "	bl intdiv\n")
+			WriteCode($$, "	mov r0, r2\n")
+ 			WriteCode($$, "	bl intdiv\n")
 		}
 	}
 |	numexpr '%' numexpr
@@ -591,8 +591,8 @@ numexpr:
 			NewCode(&$$)
 			LoadNum($$, $1, 2)
 			LoadNum($$, $3, 1)
-			WriteCode(&$$, "	mov r0, r2\n")
- 			WriteCode(&$$, "	bl intmod\n")
+			WriteCode($$, "	mov r0, r2\n")
+ 			WriteCode($$, "	bl intmod\n")
 		}
 	}
 |	numexpr '-' numexpr
@@ -604,8 +604,8 @@ numexpr:
 			NewCode(&$$)
 			LoadNum($$, $1, 2)
 			LoadNum($$, $3, 1)
-			WriteCode(&$$, "	mov r0, r2\n")
-			WriteCode(&$$, "	sub r0, r0, r1\n")
+			WriteCode($$, "	mov r0, r2\n")
+			WriteCode($$, "	sub r0, r0, r1\n")
 		}
 	}
 
