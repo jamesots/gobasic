@@ -2,6 +2,7 @@
 .align 2
 .global print
 .global println
+.global printbool
 
 @ input: r0 = address of null terminated string
 
@@ -29,6 +30,20 @@ println:
 	pop	{lr}
 	bx	lr
 
+@ input: r0 = 0 for false, non-zero for true
+printbool:
+	push	{lr}
+	cmp	r0, #0
+	ldreq	r0, =true
+	ldrne	r0, =false
+	bl	print
+	pop	{lr}
+	bx	lr
+
 .section .data
 lfz:
 	.asciz	"\n"
+true:
+	.asciz	"true"
+false:
+	.asciz	"false"

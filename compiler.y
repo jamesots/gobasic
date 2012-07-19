@@ -49,7 +49,7 @@ func Contains(l *list.List, item interface{}) bool {
 	return false
 }
 
-func PushAll(from Code, to Code) {
+func PushAll(to Code, from Code) {
 	for e := from.code.Front(); e != nil; e = e.Next() {
 		to.code.PushBack(e.Value)
 	}
@@ -67,29 +67,65 @@ func WriteCode(code Code, format string, a ...interface{}) {
 	code.code.PushBack(res)
 }
 
-func LoadNum(to Code, code Code, reg int) {
+func LoadNum(to Code, code Code) {
 	if code.state == NUM {
-		WriteCode(to, "	ldr r%d, =%d\n", reg, code.numb)
+		WriteCode(to, "	ldr r0, =%d\n", code.numb)
 	} else {
-		PushAll(code, to)
-		if reg != 0 {
-			WriteCode(to, "	mov r%d, r0\n", reg)
-		}
+		PushAll(to, code)
+		WriteCode(to, "	pop {r0}\n")
 	}
 }
 
-func LoadBool(to Code, code Code, reg int) {
+func LoadPushNum(to Code, code Code) {
+	if code.state == NUM {
+		WriteCode(to, "	ldr r0, =%d\n", code.numb)
+		WriteCode(to, "	push {r0}\n")
+	} else {
+		PushAll(to, code)
+	}
+}
+
+func CreateNumVar(to Code, varname string, val int) {
+	if !Contains(numvars, varname) {
+		WriteCode(to, ".section .data\n")
+		WriteCode(to, "var%s:\n", varname)
+		WriteCode(to, "	.word %d\n", val)
+		WriteCode(to, ".section .text\n")
+		numvars.PushBack(varname)
+	}
+}
+
+func PushNum(to Code, reg int) {
+	WriteCode(to, "	push {r%d}\n", reg)
+}
+
+func PopNum(to Code, reg int) {
+	WriteCode(to, "	pop {r%d}\n", reg)
+}
+
+func LoadBool(to Code, code Code) {
 	if code.state == BOOL {
 		if code.boo {
-			WriteCode(to, "	ldr r%d, =1\n", reg)
+			WriteCode(to, "	ldr r0, =1\n")
 		} else {
-			WriteCode(to, "	ldr r%d, =0\n", reg)
+			WriteCode(to, "	ldr r0, =0\n")
 		}
 	} else {
-		PushAll(code, to)
-		if reg != 0 {
-			WriteCode(to, "	mov r%d, r0\n", reg)
+		PushAll(to, code)
+		WriteCode(to, "	pop {r0}\n")
+	}
+}
+
+func LoadPushBool(to Code, code Code) {
+	if code.state == BOOL {
+		if code.boo {
+			WriteCode(to, "	ldr r0, =1\n")
+		} else {
+			WriteCode(to, "	ldr r0, =0\n")
 		}
+		WriteCode(to, "	push {r0}\n")
+	} else {
+		PushAll(to, code)
 	}
 }
 
@@ -143,6 +179,8 @@ func NewCode(code *Code) {
 %token	<code>	NOT
 %token	<code>	AND
 %token	<code>	OR
+%token	<code>	OPENBR
+%token	<code>	CLOSEBR
 %token	<vvar>	VAR
 %token	<vvar>	STRVAR
 %token	<str>	STRING
@@ -166,13 +204,13 @@ prog:
 	line
 	{
 		NewCode(&$$)
-		PushAll($1, $$)
+		PushAll($$, $1)
 	}
 |	line '\n' prog
 	{
 		NewCode(&$$)
-		PushAll($1, $$)
-		PushAll($3, $$)
+		PushAll($$, $1)
+		PushAll($$, $3)
 	}
 
 line:
@@ -180,20 +218,20 @@ line:
 	{
 		NewCode(&$$)
 		WriteCode($$, "line%d:\n", $1)
-		PushAll($2, $$)
+		PushAll($$, $2)
 	}
 
 cmds:
 	cmd
 	{
 		NewCode(&$$)
-		PushAll($1, $$)
+		PushAll($$, $1)
 	}
 |	cmd ':' cmds
 	{
 		NewCode(&$$)
-		PushAll($1, $$)
-		PushAll($3, $$)
+		PushAll($$, $1)
+		PushAll($$, $3)
 	}
 
 cmd:
@@ -206,7 +244,7 @@ cmd:
 |	ifcmd
 	{
 		NewCode(&$$)
-		PushAll($1, $$)
+		PushAll($$, $1)
 	}
 
 letstrcmd:
@@ -226,14 +264,8 @@ letnumcmd:
 	LET VAR '=' numexpr
 	{
 		NewCode(&$$)
-		if !Contains(numvars, $2) {
-			WriteCode($$, ".section .data\n")
-			WriteCode($$, "var%s:\n", $2)
-			WriteCode($$, "	.word %d\n", $4.numb)
-			WriteCode($$, ".section .text\n")
-			numvars.PushBack($2)
-		}
-		LoadNum($$, $4, 0)
+		CreateNumVar($$, $2, 0)
+		LoadNum($$, $4)
 		WriteCode($$, "	ldr r1, =var%s\n", $2)
 		WriteCode($$, "	str r0, [r1]\n")
 	}
@@ -296,10 +328,10 @@ fortocmd:
 		WriteCode($$, "forlimit%d:\n", forcounter)
 		WriteCode($$, "	.word 0\n")
 		WriteCode($$, ".section .text\n")
-		LoadNum($$, $4, 0)
+		LoadNum($$, $4)
 		WriteCode($$, "	ldr r1, =var%s\n", $2)
 		WriteCode($$, "	str r0, [r1]\n")
-		LoadNum($$, $6, 0)
+		LoadNum($$, $6)
 		WriteCode($$, "	ldr r1, =forlimit%d\n", forcounter)
 		WriteCode($$, "	str r0, [r1]\n")
 		WriteCode($$, "forlabel%d:\n", forcounter)
@@ -318,10 +350,16 @@ printcmd:
 		if $2.state == NUM {
 			WriteCode($$, "	ldr r0, =%d\n", $2.numb)
 		} else {
-			PushAll($2, $$)
+			PushAll($$, $2)
 		}
 		WriteCode($$, "	bl doubledabble\n")
 		WriteCode($$, "	bl println\n")
+	}
+|	PRINT boolexpr
+	{
+		NewCode(&$$)
+		LoadBool($$, $2)
+		WriteCode($$, "	bl printbool\n")
 	}
 |	PRINT strexpr
 	{
@@ -334,7 +372,7 @@ printcmd:
 			WriteCode($$, ".section .text\n")
 			WriteCode($$, "	ldr r0, =str%d\n", varcounter)
 		} else {
-			PushAll($2, $$)
+			PushAll($$, $2)
 		}
 		WriteCode($$, "	bl println\n")
 	}
@@ -345,14 +383,14 @@ ifcmd:
 		NewCode(&$$)
 		if $2.state == BOOL {
 			if $2.boo {
-				PushAll($4, $$)
+				PushAll($$, $4)
 			}
 		} else {
 			ifcounter += 1
-			PushAll($2, $$)
+			PushAll($$, $2)
 			WriteCode($$, "	cmp r0, #0\n")
 			WriteCode($$, "	beq ifend%d\n", ifcounter)
-			PushAll($4, $$)
+			PushAll($$, $4)
 			WriteCode($$, "ifend%d:\n", ifcounter)
 		}
 	}
@@ -383,12 +421,12 @@ strexpr:
 				// add STRING to something
 				// need to handle memory allocations
 			} else {
-				PushAll($1, $$)  // add whatever we have to something
+				PushAll($$, $1)  // add whatever we have to something
 			}
 			if $3.state == STRING {
 				// add something to STRING
 			} else {
-				PushAll($3, $$)
+				PushAll($$, $3)
 				WriteCode($$, "	mov r1, r0\n")
 			}
 			// add them somehow
@@ -400,31 +438,37 @@ strexpr:
 boolexpr:
 	TRUE
 	{
+		fmt.Println("TRUE")
 		$$.state = BOOL
 		$$.boo = true
 	}
 |	FALSE
 	{
+		fmt.Println("FALSE")
 		$$.state = BOOL
 		$$.boo = false
 	}
-|	'(' boolexpr ')'
+|	OPENBR boolexpr CLOSEBR
 	{
+		fmt.Println("( boolexpr )")
 		NewCode(&$$)
-		LoadBool($$, $2, 0)
+		LoadPushBool($$, $2)
 	}
 |	numexpr '<' numexpr
 	{
+		fmt.Println("numexpr < numexpr")
 		if $1.state == NUM && $3.state == NUM {
 			$$.state = BOOL
 			$$.boo = $1.numb < $3.numb
 		} else {
 			NewCode(&$$)
-			LoadNum($$, $1, 1)
-			LoadNum($$, $3, 0)
+			LoadPushNum($$, $1)
+			LoadNum($$, $3)
+			PopNum($$, 1)
 			WriteCode($$, "	cmp r1, r0\n")
 			WriteCode($$, "	movlt r0, #1\n")
 			WriteCode($$, "	movge r0, #0\n")
+			PushNum($$, 0)
 		}
 	}
 |	numexpr '>' numexpr
@@ -434,11 +478,13 @@ boolexpr:
 			$$.boo = $1.numb > $3.numb
 		} else {
 			NewCode(&$$)
-			LoadNum($$, $1, 1)
-			LoadNum($$, $3, 0)
+			LoadPushNum($$, $1)
+			LoadNum($$, $3)
+			PopNum($$, 1)
 			WriteCode($$, "	cmp r1, r0\n")
 			WriteCode($$, "	movgt r0, #1\n")
 			WriteCode($$, "	movle r0, #0\n")
+			PushNum($$, 0)
 		}
 	}
 |	numexpr '>=' numexpr
@@ -448,11 +494,13 @@ boolexpr:
 			$$.boo = $1.numb >= $3.numb
 		} else {
 			NewCode(&$$)
-			LoadNum($$, $1, 1)
-			LoadNum($$, $3, 0)
+			LoadPushNum($$, $1)
+			LoadNum($$, $3)
+			PopNum($$, 1)
 			WriteCode($$, "	cmp r1, r0\n")
 			WriteCode($$, "	movge r0, #1\n")
 			WriteCode($$, "	movlt r0, #0\n")
+			PushNum($$, 0)
 		}
 	}
 |	numexpr '<=' numexpr
@@ -462,11 +510,13 @@ boolexpr:
 			$$.boo = $1.numb <= $3.numb
 		} else {
 			NewCode(&$$)
-			LoadNum($$, $1, 1)
-			LoadNum($$, $3, 0)
+			LoadPushNum($$, $1)
+			LoadNum($$, $3)
+			PopNum($$, 1)
 			WriteCode($$, "	cmp r1, r0\n")
 			WriteCode($$, "	movge r0, #1\n")
 			WriteCode($$, "	movlt r0, #0\n")
+			PushNum($$, 0)
 		}
 	}
 |	numexpr '<>' numexpr
@@ -476,11 +526,13 @@ boolexpr:
 			$$.boo = $1.numb != $3.numb
 		} else {
 			NewCode(&$$)
-			LoadNum($$, $1, 1)
-			LoadNum($$, $3, 0)
+			LoadPushNum($$, $1)
+			LoadNum($$, $3)
+			PopNum($$, 1)
 			WriteCode($$, "	cmp r1, r0\n")
 			WriteCode($$, "	movne r0, #1\n")
 			WriteCode($$, "	moveq r0, #0\n")
+			PushNum($$, 0)
 		}
 	}
 |	numexpr '=' numexpr
@@ -490,11 +542,13 @@ boolexpr:
 			$$.boo = $1.numb == $3.numb
 		} else {
 			NewCode(&$$)
-			LoadNum($$, $1, 1)
-			LoadNum($$, $3, 0)
+			LoadPushNum($$, $1)
+			LoadNum($$, $3)
+			PopNum($$, 1)
 			WriteCode($$, "	cmp r1, r0\n")
 			WriteCode($$, "	moveq r0, #1\n")
 			WriteCode($$, "	movne r0, #0\n")
+			PushNum($$, 0)
 		}
 	}
 |	boolexpr AND boolexpr
@@ -504,9 +558,11 @@ boolexpr:
 			$$.boo = $1.boo && $3.boo
 		} else {
 			NewCode(&$$)
-			LoadBool($$, $1, 1)
-			LoadBool($$, $3, 0)
+			LoadPushBool($$, $1)
+			LoadBool($$, $3)
+			PopNum($$, 1)
 			WriteCode($$, "	and r0, r0, r1\n")
+			PushNum($$, 0)
 		}
 	}
 |	boolexpr OR boolexpr
@@ -516,9 +572,11 @@ boolexpr:
 			$$.boo = $1.boo || $3.boo
 		} else {
 			NewCode(&$$)
-			LoadBool($$, $1, 1)
-			LoadBool($$, $3, 0)
+			LoadPushBool($$, $1)
+			LoadBool($$, $3)
+			PopNum($$, 1)
 			WriteCode($$, "	orr r0, r0, r1\n")
+			PushNum($$, 0)
 		}
 	}
 |	NOT boolexpr
@@ -528,8 +586,10 @@ boolexpr:
 			$$.boo = !$2.boo
 		} else {
 			NewCode(&$$)
-			PushAll($2, $$)
+			PushAll($$, $2)
+			PopNum($$, 0)
 			WriteCode($$, "	mvn r0, r0\n")
+			PushNum($$, 0)
 		}
 	}
 
@@ -544,6 +604,7 @@ numexpr:
 		NewCode(&$$)
 		WriteCode($$, "	ldr r0, =var%s\n", $1)
 		WriteCode($$, "	ldr r0, [r0]\n")
+		PushNum($$, 0)
 	}
 |	numexpr '+' numexpr
 	{
@@ -552,9 +613,11 @@ numexpr:
 			$$.numb = $1.numb + $3.numb
 		} else {
 			NewCode(&$$)
-			LoadNum($$, $1, 1)
-			LoadNum($$, $3, 0)
+			LoadPushNum($$, $1)
+			LoadNum($$, $3)
+			PopNum($$, 1)
 			WriteCode($$, "	add r0, r1, r0\n")
+			PushNum($$, 0)
 		}
 	}
 |	numexpr '*' numexpr
@@ -564,9 +627,11 @@ numexpr:
 			$$.numb = $1.numb * $3.numb
 		} else {
 			NewCode(&$$)
-			LoadNum($$, $1, 1)
-			LoadNum($$, $3, 2)
- 			WriteCode($$, "	mul r0, r2, r1\n")
+			LoadPushNum($$, $1)
+			LoadNum($$, $3)
+			PopNum($$, 1)
+ 			WriteCode($$, "	mul r2, r0, r1\n")
+ 			PushNum($$, 2)
 		}
 	}
 |	numexpr '/' numexpr
@@ -576,10 +641,13 @@ numexpr:
 			$$.numb = $1.numb / $3.numb
 		} else {
 			NewCode(&$$)
-			LoadNum($$, $1, 2)
-			LoadNum($$, $3, 1)
+			LoadPushNum($$, $1)
+			LoadNum($$, $3)
+			PopNum($$, 2)
+			WriteCode($$, "	mov r1, r0\n")
 			WriteCode($$, "	mov r0, r2\n")
  			WriteCode($$, "	bl intdiv\n")
+ 			PushNum($$, 0)
 		}
 	}
 |	numexpr '%' numexpr
@@ -589,10 +657,13 @@ numexpr:
 			$$.numb = $1.numb % $3.numb
 		} else {
 			NewCode(&$$)
-			LoadNum($$, $1, 2)
-			LoadNum($$, $3, 1)
+			LoadPushNum($$, $1)
+			LoadNum($$, $3)
+			PopNum($$, 2)
+			WriteCode($$, "	mov r1, r0\n")
 			WriteCode($$, "	mov r0, r2\n")
  			WriteCode($$, "	bl intmod\n")
+ 			PushNum($$, 0)
 		}
 	}
 |	numexpr '-' numexpr
@@ -602,10 +673,11 @@ numexpr:
 			$$.numb = $1.numb - $3.numb
 		} else {
 			NewCode(&$$)
-			LoadNum($$, $1, 2)
-			LoadNum($$, $3, 1)
-			WriteCode($$, "	mov r0, r2\n")
-			WriteCode($$, "	sub r0, r0, r1\n")
+			LoadPushNum($$, $1)
+			LoadNum($$, $3)
+			PopNum($$, 1)
+			WriteCode($$, "	sub r0, r1, r0\n")
+ 			PushNum($$, 0)
 		}
 	}
 
@@ -677,6 +749,14 @@ func (BobLex) Lex(yylval *yySymType) int {
 		if t == "NEXT" {
 			yylval.cmd = t
 			return NEXT
+		}
+		if t == "(" {
+			yylval.cmd = t
+			return OPENBR
+		}
+		if t == ")" {
+			yylval.cmd = t
+			return CLOSEBR
 		}
 		if t[0] >= 'A' && t[0] <= 'Z' {
 			if t[len(t)-1] == '$' {
