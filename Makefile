@@ -7,7 +7,7 @@ prog.S: prog.bas gobasic
 clean:
 	rm -if prog prog.S *.o gobasic *.list *.output compiler.S compiler.go
 
-gobasic: gobasic.go compiler.go tok.go
+gobasic: gobasic.go compiler.go tok.go functions.go
 	go build
 
 compiler.go: compiler.y

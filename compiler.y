@@ -5,7 +5,6 @@ import (
 	"os"
 	"fmt"
 	"strconv"
-	"regexp"
 	"container/list"
 )	
 
@@ -37,128 +36,6 @@ const (
 	CODE = iota
 )
 
-func Contains(l *list.List, item interface{}) bool {
-	fmt.Println("Contains, looking for ", item)
-	for e := l.Front(); e != nil; e = e.Next() {
-		fmt.Println("Compare with: ", e.Value)
-		if e.Value == item {
-			fmt.Println("Found")
-			return true
-		}
-	}
-	fmt.Println("Not found")
-	return false
-}
-
-func PushAll(to Code, from Code) {
-	for e := from.code.Front(); e != nil; e = e.Next() {
-		to.code.PushBack(e.Value)
-	}
-}
-
-func PrintAll(file *os.File, from Code) {
-	for e := from.code.Front(); e != nil; e = e.Next() {
-		var s = e.Value.(string)
-		file.WriteString(s)
-	}
-}
-
-func WriteCode(code Code, format string, a ...interface{}) {
-	res := fmt.Sprintf(format, a...)
-	code.code.PushBack(res)
-}
-
-func LoadNum(to Code, code Code) {
-	if code.state == NUM {
-		WriteCode(to, "	ldr r0, =%d\n", code.numb)
-	} else {
-		PushAll(to, code)
-		WriteCode(to, "	pop {r0}\n")
-	}
-}
-
-func LoadPushNum(to Code, code Code) {
-	if code.state == NUM {
-		WriteCode(to, "	ldr r0, =%d\n", code.numb)
-		WriteCode(to, "	push {r0}\n")
-	} else {
-		PushAll(to, code)
-	}
-}
-
-func CreateNumVar(to Code, varname string, val int) {
-	if !Contains(numvars, varname) {
-		WriteCode(to, ".section .data\n")
-		WriteCode(to, "var%s:\n", varname)
-		WriteCode(to, "	.word %d\n", val)
-		WriteCode(to, ".section .text\n")
-		numvars.PushBack(varname)
-	}
-}
-
-func PushNum(to Code, reg int) {
-	WriteCode(to, "	push {r%d}\n", reg)
-}
-
-func PopNum(to Code, reg int) {
-	WriteCode(to, "	pop {r%d}\n", reg)
-}
-
-func CleanPushPop(code Code) {
-	// removes pointless successive pushes and pops
-	fmt.Println("Cleaning up")
-	popRe, _ := regexp.Compile("	pop \\{r([0-9]+)\\}\n")
-	pushRe, _ := regexp.Compile("	push \\{r([0-9]+)\\}\n")
-	var lastpush string = ""
-	var lastel *list.Element
-	for e := code.code.Front(); e != nil; e = e.Next() {
-		s := e.Value.(string)
-		if popRe.MatchString(s) {
-			reg := popRe.FindStringSubmatch(s)[1]
-			if lastpush == reg {
-				el := e.Next()
-				code.code.Remove(e)
-				code.code.Remove(lastel)
-				e = el.Prev()
-				lastpush = ""
-			}
-		} else if pushRe.MatchString(s) {
-			lastpush = pushRe.FindStringSubmatch(s)[1]
-			lastel = e
-		}
-	}
-}
-
-func LoadBool(to Code, code Code) {
-	if code.state == BOOL {
-		if code.boo {
-			WriteCode(to, "	ldr r0, =1\n")
-		} else {
-			WriteCode(to, "	ldr r0, =0\n")
-		}
-	} else {
-		PushAll(to, code)
-		PopNum(to, 0)
-	}
-}
-
-func LoadPushBool(to Code, code Code) {
-	if code.state == BOOL {
-		if code.boo {
-			WriteCode(to, "	ldr r0, =1\n")
-		} else {
-			WriteCode(to, "	ldr r0, =0\n")
-		}
-		WriteCode(to, "	push {r0}\n")
-	} else {
-		PushAll(to, code)
-	}
-}
-
-func NewCode(code *Code) {
-	code.code = list.New()
-	code.state = CODE
-}
 
 %}
 
@@ -258,6 +135,7 @@ line:
 		WriteCode($$, "line%d:\n", $1)
 		PushAll($$, $2)
 	}
+|	{} // empty line
 
 cmds:
 	cmd
@@ -342,7 +220,6 @@ nextcmd:
 fortocmd:
 	FOR VAR EQ numexpr TO numexpr
 	{
-		fmt.Println("FOR VAR = x to y:", $2, $4.numb, $6.numb)
 		for e := forvars.Front(); e != nil; e = e.Next() {
 			forvar := e.Value.(LoopInfo)
 			if forvar.varname == $2 {
