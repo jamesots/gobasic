@@ -19,3 +19,5 @@ compiler: compiler.go
 %.o: %.S
 	gcc -Wa,-ahls=$*.list,-L -c -ggdb -o $*.o $*.S
 
+tok: tok.go
+	go build tok.go

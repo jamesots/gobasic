@@ -30,3 +30,5 @@ prog
 compiler.go
 *.output
 *~
+tok
+tok.S
