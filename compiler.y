@@ -11,6 +11,7 @@ import (
 var varcounter int
 var forcounter int
 var ifcounter int
+var lastlinenum int = -1
 
 var result Code
 
@@ -131,6 +132,11 @@ prog:
 line:
 	NUM cmds
 	{
+		if $1 <= lastlinenum {
+			fmt.Println("Line numbers must increase: ", $1, " <= ", lastlinenum)
+			os.Exit(7)
+		}
+		lastlinenum = $1
 		NewCode(&$$)
 		WriteCode($$, "line%d:\n", $1)
 		PushAll($$, $2)
