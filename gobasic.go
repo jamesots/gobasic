@@ -98,6 +98,7 @@ func main() {
 	toks, err := Tokenise(filename)
 	
 	Parse(toks)
+	CleanPushPop(result)
 	PrintAll(file, result)
 	WriteEnd(file)
 }

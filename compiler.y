@@ -5,6 +5,7 @@ import (
 	"os"
 	"fmt"
 	"strconv"
+	"regexp"
 	"container/list"
 )	
 
@@ -103,6 +104,31 @@ func PopNum(to Code, reg int) {
 	WriteCode(to, "	pop {r%d}\n", reg)
 }
 
+func CleanPushPop(code Code) {
+	// removes pointless successive pushes and pops
+	fmt.Println("Cleaning up")
+	popRe, _ := regexp.Compile("	pop \\{r([0-9]+)\\}\n")
+	pushRe, _ := regexp.Compile("	push \\{r([0-9]+)\\}\n")
+	var lastpush string = ""
+	var lastel *list.Element
+	for e := code.code.Front(); e != nil; e = e.Next() {
+		s := e.Value.(string)
+		if popRe.MatchString(s) {
+			reg := popRe.FindStringSubmatch(s)[1]
+			if lastpush == reg {
+				el := e.Next()
+				code.code.Remove(e)
+				code.code.Remove(lastel)
+				e = el.Prev()
+				lastpush = ""
+			}
+		} else if pushRe.MatchString(s) {
+			lastpush = pushRe.FindStringSubmatch(s)[1]
+			lastel = e
+		}
+	}
+}
+
 func LoadBool(to Code, code Code) {
 	if code.state == BOOL {
 		if code.boo {
@@ -112,7 +138,7 @@ func LoadBool(to Code, code Code) {
 		}
 	} else {
 		PushAll(to, code)
-		WriteCode(to, "	pop {r0}\n")
+		PopNum(to, 0)
 	}
 }
 
@@ -402,6 +428,7 @@ ifcmd:
 		} else {
 			ifcounter += 1
 			PushAll($$, $2)
+			PopNum($$, 0)
 			WriteCode($$, "	cmp r0, #0\n")
 			WriteCode($$, "	beq ifelse%d\n", ifcounter)
 			PushAll($$, $4)
@@ -421,6 +448,7 @@ ifcmd:
 		} else {
 			ifcounter += 1
 			PushAll($$, $2)
+			PopNum($$, 0)
 			WriteCode($$, "	cmp r0, #0\n")
 			WriteCode($$, "	beq ifend%d\n", ifcounter)
 			PushAll($$, $4)
