@@ -7,7 +7,7 @@ prog.S: prog.bas gobasic
 clean:
 	rm -if prog prog.S *.o gobasic *.list *.output compiler.S compiler.go
 
-gobasic: gobasic.go compiler.go
+gobasic: gobasic.go compiler.go tok.go
 	go build
 
 compiler.go: compiler.y
@@ -18,6 +18,3 @@ compiler: compiler.go
 
 %.o: %.S
 	gcc -Wa,-ahls=$*.list,-L -c -ggdb -o $*.o $*.S
-
-tok: tok.go
-	go build tok.go

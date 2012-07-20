@@ -3,137 +3,121 @@ package main
 import (
 	"bufio"
 	"bytes"
-//	"container/list"
-	"flag"
+	"container/list"
 	"fmt"
-	"io"
 	"os"
-//	"regexp"
-//	"strconv"
-	"strings"
 )
 
-var strs []string
+var toks *list.List
 
-// Read a whole file into the memory and store it as array of lines
-func ReadLines(path string) (lines []string, err error) {
-	var (
-		file   *os.File
-		part   []byte
-		prefix bool
-	)
-	if file, err = os.Open(path); err != nil {
-		return
-	}
-	defer file.Close()
-
-	reader := bufio.NewReader(file)
-	buffer := bytes.NewBuffer(make([]byte, 0))
-	for {
-		if part, prefix, err = reader.ReadLine(); err != nil {
-			break
-		}
-		buffer.Write(part)
-		if !prefix {
-			lines = append(lines, buffer.String())
-			buffer.Reset()
-		}
-	}
-	if err == io.EOF {
-		err = nil
-	}
-	return
+type Token struct {
+	text string
+	tokentype int
 }
 
-func CheckError(err error) bool {
-	if err != nil {
-		fmt.Printf("Error: %s\n", err)
-		return true
-	}
-	return false
-}
-
-func Usage() {
-	fmt.Fprintf(os.Stderr, "Usage: %s [inputfile]\n", os.Args[0])
-	flag.PrintDefaults()
-	os.Exit(2)
-}
-
-func NextTok(tok *bytes.Buffer) {
+func NextTok(tok *bytes.Buffer, tokentype int) {
 	if tok.Len() > 0 {
-		fmt.Println(tok.String())
+//		fmt.Println(tok.String())
+		toks.PushBack(Token{
+			tok.String(),
+			tokentype})
 		tok.Truncate(0)
 	}
 }
 
-func main() {
+const (
+	TOK_STRING int = iota+1
+	TOK_NUMBER
+	TOK_SYMBOL
+	TOK_NEWLINE
+	TOK_IDENTIFIER
+)
+
+func Tokenise(filename string) (*list.List, error) {
 	var err error
-	fmt.Println("GOBASIC Tokeniser")
-
-	flag.Usage = Usage
-	flag.Parse()
-
-	args := flag.Args()
-	if len(args) < 1 {
-		fmt.Println("Input file missing")
-		os.Exit(1)
-	}
-	filename := args[0]
 
 	var infile *os.File
 	if infile, err = os.Open(filename); err != nil {
-		return
+		return nil, err
 	}
 	defer infile.Close()
 
 	reader := bufio.NewReader(infile)
-	var file *os.File
-	if file, err = os.Create(strings.Replace(filename, ".bas", ".S", 1)); err != nil {
-		fmt.Println("Error: %s\n", err)
-		return
-	}
-	defer file.Close()
 
+	toks = list.New()
 	var tok bytes.Buffer
-	const (
-		NORMAL int = iota+1
-		STRING
-		NUMBER
-	)
-	var state int = NORMAL
+	var state int = TOK_IDENTIFIER
 	for {
 		c, _, err := reader.ReadRune()
 		if err != nil {
-			return
+			break
 		}
-		if state == NORMAL {
+		
+		if c == '\n' {
+			NextTok(&tok, state)
+			tok.WriteString("**NEWLINE**");
+			NextTok(&tok, TOK_NEWLINE)
+			state = TOK_IDENTIFIER
+			continue
+		}
+		
+		if state == TOK_IDENTIFIER {
 			if c >= '0' && c <= '9' {
-				state = NUMBER
 				reader.UnreadRune()
-				NextTok(&tok)
+				NextTok(&tok, state)
+				state = TOK_NUMBER
 			} else if c == '"' {
-				state = STRING
-				NextTok(&tok)
-			} else if (c == '\n' || c == ' ' || c == '\t') {
-				NextTok(&tok)
+				NextTok(&tok, state)
+				state = TOK_STRING
+			} else if (c == ' ' || c == '\t') {
+				NextTok(&tok, state)
+			} else if c == '$' {
+				tok.WriteRune(c)
+				NextTok(&tok, state)
+			} else if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') {
+				tok.WriteRune(c)
+			} else {
+				reader.UnreadRune()
+				NextTok(&tok, state)
+				state = TOK_SYMBOL
+			}
+		} else if state == TOK_SYMBOL {
+			if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '"' {
+				reader.UnreadRune()
+				NextTok(&tok, state)
+				state = TOK_IDENTIFIER
+			} else if (c == ' ' || c == '\t') {
+				NextTok(&tok, state)
 			} else {
 				tok.WriteRune(c)
+				s := tok.String()
+				if s == "(" || s == ")" {
+					NextTok(&tok, state)
+				} 
 			}
-		} else if state == NUMBER {
+		} else if state == TOK_NUMBER {
 			if c >= '0' && c <= '9' {
 				tok.WriteRune(c)
 			} else {
-				state = NORMAL
 				reader.UnreadRune()
-				NextTok(&tok)
+				NextTok(&tok, state)
+				state = TOK_IDENTIFIER
 			}
-		} else if state == STRING {
+		} else if state == TOK_STRING {
 			if c != '"' {
 				tok.WriteRune(c)
 			} else {
-				state = NORMAL
-				NextTok(&tok)
+				NextTok(&tok, state)
+				state = TOK_IDENTIFIER
 			}
 		}
 	}
+	NextTok(&tok, state)
+	
+	for e := toks.Front(); e != nil; e = e.Next() {
+		var s = e.Value.(Token)
+		fmt.Println(s.text, s.tokentype)
+	}
+	
+	return toks, nil
 }

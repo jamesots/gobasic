@@ -1,9 +1,11 @@
-1 PRINT "Testing_the_BASIC_compiler"
-10 LET A = 0
-11 LET B = 1
-12 PRINT A
-13 PRINT B
-20 FOR I = 0 TO 20
+1 PRINT "Testing the BASIC compiler"
+10 PRINT "Hello again"
+11 IF 1<2 THEN PRINT "Hey"
+12 IF 1=2 THEN PRINT "ho"
+13 LET B = 1
+14 PRINT A
+15 PRINT B
+20 FOR I=0TO 20
 30 LET C = A + B
 40 LET A = B
 50 LET B = C

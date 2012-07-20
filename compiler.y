@@ -151,7 +151,6 @@ func NewCode(code *Code) {
 %type	<code>	numexpr
 %type	<code>	boolexpr
 %type	<code>	strexpr
-%type	<code>	expr
 %type	<code>	printcmd
 %type	<code>	gotocmd
 %type	<code>	nextcmd
@@ -178,16 +177,29 @@ func NewCode(code *Code) {
 %token	<code>	NOT
 %token	<code>	AND
 %token	<code>	OR
+%token	<code>	LT
+%token	<code>	LE
+%token	<code>	GT
+%token	<code>	GE
+%token	<code>	NE
+%token	<code>	EQ
+%token	<code>	PLUS
+%token	<code>	MINUS
+%token	<code>	TIMES
+%token	<code>	DIVIDE
+%token	<code>	QUOT
+%token	<code>	COLON
 %token	<code>	OPENBR
 %token	<code>	CLOSEBR
+%token	<code>	NEWLINE
 %token	<vvar>	VAR
 %token	<vvar>	STRVAR
 %token	<str>	STRING
 
-%left	'<' '>' '<=' '>=' '=' '<>'
-%left	'+' '-' 
-%left	'*' '/' '%'
-%left	':'
+%left	LT GT LE GE EQ NE
+%left	PLUS MINUS
+%left	TIMES DIVIDE QUOT
+%left	COLON
 %left	AND OR
 %right	NOT
 
@@ -205,7 +217,7 @@ prog:
 		NewCode(&$$)
 		PushAll($$, $1)
 	}
-|	line '\n' prog
+|	line NEWLINE prog
 	{
 		NewCode(&$$)
 		PushAll($$, $1)
@@ -226,7 +238,7 @@ cmds:
 		NewCode(&$$)
 		PushAll($$, $1)
 	}
-|	cmd ':' cmds
+|	cmd COLON cmds
 	{
 		NewCode(&$$)
 		PushAll($$, $1)
@@ -247,7 +259,7 @@ cmd:
 	}
 
 letstrcmd:
-	LET STRVAR '=' strexpr
+	LET STRVAR EQ strexpr
 	{
 		if $4.state == STRING {
 			NewCode(&$$)
@@ -260,7 +272,7 @@ letstrcmd:
 	}
 
 letnumcmd:
-	LET VAR '=' numexpr
+	LET VAR EQ numexpr
 	{
 		NewCode(&$$)
 		CreateNumVar($$, $2, 0)
@@ -301,7 +313,7 @@ nextcmd:
 	}
 
 fortocmd:
-	FOR VAR '=' numexpr TO numexpr
+	FOR VAR EQ numexpr TO numexpr
 	{
 		fmt.Println("FOR VAR = x to y:", $2, $4.numb, $6.numb)
 		for e := forvars.Front(); e != nil; e = e.Next() {
@@ -394,10 +406,6 @@ ifcmd:
 		}
 	}
 
-expr:
-	numexpr
-|	strexpr
-
 strexpr:
 	STRING
 	{
@@ -409,7 +417,7 @@ strexpr:
 		NewCode(&$$)
 		WriteCode($$, "	ldr r0, =str%s\n", $1)
 	}
-|	strexpr '+' strexpr
+|	strexpr PLUS strexpr
 	{
 		if $1.state == STRING && $3.state == STRING {
 			$$.state = STRING
@@ -453,7 +461,7 @@ boolexpr:
 		NewCode(&$$)
 		LoadPushBool($$, $2)
 	}
-|	numexpr '<' numexpr
+|	numexpr LT numexpr
 	{
 		fmt.Println("numexpr < numexpr")
 		if $1.state == NUM && $3.state == NUM {
@@ -470,7 +478,7 @@ boolexpr:
 			PushNum($$, 0)
 		}
 	}
-|	numexpr '>' numexpr
+|	numexpr GT numexpr
 	{
 		if $1.state == NUM && $3.state == NUM {
 			$$.state = BOOL
@@ -486,7 +494,7 @@ boolexpr:
 			PushNum($$, 0)
 		}
 	}
-|	numexpr '>=' numexpr
+|	numexpr GE numexpr
 	{
 		if $1.state == NUM && $3.state == NUM {
 			$$.state = BOOL
@@ -502,7 +510,7 @@ boolexpr:
 			PushNum($$, 0)
 		}
 	}
-|	numexpr '<=' numexpr
+|	numexpr LE numexpr
 	{
 		if $1.state == NUM && $3.state == NUM {
 			$$.state = BOOL
@@ -518,7 +526,7 @@ boolexpr:
 			PushNum($$, 0)
 		}
 	}
-|	numexpr '<>' numexpr
+|	numexpr NE numexpr
 	{
 		if $1.state == NUM && $3.state == NUM {
 			$$.state = BOOL
@@ -534,7 +542,7 @@ boolexpr:
 			PushNum($$, 0)
 		}
 	}
-|	numexpr '=' numexpr
+|	numexpr EQ numexpr
 	{
 		if $1.state == NUM && $3.state == NUM {
 			$$.state = BOOL
@@ -605,7 +613,7 @@ numexpr:
 		WriteCode($$, "	ldr r0, [r0]\n")
 		PushNum($$, 0)
 	}
-|	numexpr '+' numexpr
+|	numexpr PLUS numexpr
 	{
 		if $1.state == NUM && $3.state == NUM {
 			$$.state = NUM
@@ -619,7 +627,7 @@ numexpr:
 			PushNum($$, 0)
 		}
 	}
-|	numexpr '*' numexpr
+|	numexpr TIMES numexpr
 	{
 		if $1.state == NUM && $3.state == NUM {
 			$$.state = NUM
@@ -633,7 +641,7 @@ numexpr:
  			PushNum($$, 2)
 		}
 	}
-|	numexpr '/' numexpr
+|	numexpr DIVIDE numexpr
 	{
 		if $1.state == NUM && $3.state == NUM {
 			$$.state = NUM
@@ -649,7 +657,7 @@ numexpr:
  			PushNum($$, 0)
 		}
 	}
-|	numexpr '%' numexpr
+|	numexpr QUOT numexpr
 	{
 		if $1.state == NUM && $3.state == NUM {
 			$$.state = NUM
@@ -665,7 +673,7 @@ numexpr:
  			PushNum($$, 0)
 		}
 	}
-|	numexpr '-' numexpr
+|	numexpr MINUS numexpr
 	{
 		if $1.state == NUM && $3.state == NUM {
 			$$.state = NUM
@@ -684,65 +692,61 @@ numexpr:
 
 type BobLex int // the int here is the input that yyParse takes
 
-var tok int
-var strs []string
+var tokens *list.List
 
 func (BobLex) Lex(yylval *yySymType) int {
-	if tok < len(strs) {
-		t := strs[tok]
-		fmt.Println("TOKEN: ", t)
-		tok = tok + 1;
-		if t[0] >= '0' && t[0] <= '9' {
+	e := tokens.Front()
+	if (e != nil) {
+		token := tokens.Remove(e).(Token)
+		t := token.text
+		tokentype := token.tokentype
+		if tokentype == TOK_NUMBER {
+			fmt.Println("NUMBER: ", t)
 			num, _ := strconv.Atoi(t)
 			yylval.numb = num
 			return NUM
 		}
-		if t == "PRINT" {
-			return PRINT
-		}
-		if t == "TRUE" {
-			return TRUE
-		}
-		if t == "FALSE" {
-			return FALSE
-		}
-		if t == "AND" {
-			return AND
-		}
-		if t == "OR" {
-			return OR
-		}
-		if t == "NOT" {
-			return NOT
-		}
-		if t == "GOTO" {
-			return GOTO
-		}
-		if t == "LET" {
-			return LET
-		}
-		if t == "FOR" {
-			return FOR
-		}
-		if t == "IF" {
-			return IF
-		}
-		if t == "THEN" {
-			return THEN
-		}
-		if t == "TO" {
-			return TO
-		}
-		if t == "NEXT" {
-			return NEXT
-		}
-		if t == "(" {
-			return OPENBR
-		}
-		if t == ")" {
-			return CLOSEBR
-		}
-		if t[0] >= 'A' && t[0] <= 'Z' {
+		if tokentype == TOK_IDENTIFIER {
+			fmt.Println("IDENTIFIER: ", t)
+			if t == "PRINT" {
+				return PRINT
+			}
+			if t == "TRUE" {
+				return TRUE
+			}
+			if t == "FALSE" {
+				return FALSE
+			}
+			if t == "AND" {
+				return AND
+			}
+			if t == "OR" {
+				return OR
+			}
+			if t == "NOT" {
+				return NOT
+			}
+			if t == "GOTO" {
+				return GOTO
+			}
+			if t == "LET" {
+				return LET
+			}
+			if t == "FOR" {
+				return FOR
+			}
+			if t == "IF" {
+				return IF
+			}
+			if t == "THEN" {
+				return THEN
+			}
+			if t == "TO" {
+				return TO
+			}
+			if t == "NEXT" {
+				return NEXT
+			}
 			if t[len(t)-1] == '$' {
 				yylval.vvar = t[0:len(t)-1]
 				return STRVAR
@@ -751,8 +755,58 @@ func (BobLex) Lex(yylval *yySymType) int {
 				return VAR
 			}
 		}
-		if t[0] == '"' {
-			yylval.str = t[1:len(t)-1]
+		if tokentype == TOK_SYMBOL {
+			fmt.Println("SYMBOL: ", t)
+			if t == "(" {
+				return OPENBR
+			}
+			if t == ")" {
+				return CLOSEBR
+			}
+			if t == "<" {
+				return LT
+			}
+			if t == "=" {
+				return EQ
+			}
+			if t == "<=" {
+				return LE
+			}
+			if t == ">" {
+				return GT
+			}
+			if t == ">=" {
+				return GE
+			}
+			if t == "<>" {
+				return NE
+			}
+			if t == "+" {
+				return PLUS
+			}
+			if t == "-" {
+				return MINUS
+			}
+			if t == "*" {
+				return TIMES
+			}
+			if t == "/" {
+				return DIVIDE
+			}
+			if t == "%" {
+				return QUOT
+			}
+			if t == ":" {
+				return COLON
+			}
+		}
+		if tokentype == TOK_NEWLINE {
+			fmt.Println("NEWLINE: ", t)
+			return NEWLINE
+		}
+		if tokentype == TOK_STRING {
+			fmt.Println("STRING: ", t)
+			yylval.str = t
 			return STRING
 		}
 		return int(t[0])
@@ -764,12 +818,12 @@ func (BobLex) Error(s string) {
 	fmt.Println("Error ", s)
 }
 
-func Parse(strs []string) {
+func Parse(toks *list.List) {
 	numvars = list.New()
 	strvars = list.New()
 	forvars = list.New()
 	fmt.Println("Start")
-	tok = 0
+	tokens = toks
 	varcounter = 0
 	forcounter = 0
 	ifcounter = 0

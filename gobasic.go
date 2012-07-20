@@ -3,13 +3,10 @@ package main
 import (
 	"bufio"
 	"bytes"
-//	"container/list"
 	"flag"
 	"fmt"
 	"io"
 	"os"
-//	"regexp"
-//	"strconv"
 	"strings"
 )
 
@@ -89,10 +86,7 @@ func main() {
 	}
 	filename := args[0]
 
-	lines, err := ReadLines(filename)
-	if CheckError(err) {
-		return
-	}
+	var err error
 	var file *os.File
 	if file, err = os.Create(strings.Replace(filename, ".bas", ".S", 1)); err != nil {
 		fmt.Println("Error: %s\n", err)
@@ -101,21 +95,9 @@ func main() {
 	defer file.Close()
 	WriteHeader(file)
 
-	for _, line := range lines {
-		bits := strings.Split(line, " ")
-		for _, bit := range bits {
-			strs = append(strs, bit)
-		}
-		strs = append(strs, "\n")
-	}
+	toks, err := Tokenise(filename)
 	
-	strs = strs[:len(strs)-1]
-
-	for _, str := range strs {
-		fmt.Println("TOK ", str)
-	}
-
-	Parse(strs)
+	Parse(toks)
 	PrintAll(file, result)
 	WriteEnd(file)
 }
