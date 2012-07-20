@@ -140,7 +140,6 @@ func NewCode(code *Code) {
 %union
 {
 	numb	int
-	cmd	string
 	code	Code
 	str	string
 	vvar	string
@@ -699,63 +698,48 @@ func (BobLex) Lex(yylval *yySymType) int {
 			return NUM
 		}
 		if t == "PRINT" {
-			yylval.cmd = t
 			return PRINT
 		}
 		if t == "TRUE" {
-			yylval.cmd = t
 			return TRUE
 		}
 		if t == "FALSE" {
-			yylval.cmd = t
 			return FALSE
 		}
 		if t == "AND" {
-			yylval.cmd = t
 			return AND
 		}
 		if t == "OR" {
-			yylval.cmd = t
 			return OR
 		}
 		if t == "NOT" {
-			yylval.cmd = t
 			return NOT
 		}
 		if t == "GOTO" {
-			yylval.cmd = t
 			return GOTO
 		}
 		if t == "LET" {
-			yylval.cmd = t
 			return LET
 		}
 		if t == "FOR" {
-			yylval.cmd = t
 			return FOR
 		}
 		if t == "IF" {
-			yylval.cmd = t
 			return IF
 		}
 		if t == "THEN" {
-			yylval.cmd = t
 			return THEN
 		}
 		if t == "TO" {
-			yylval.cmd = t
 			return TO
 		}
 		if t == "NEXT" {
-			yylval.cmd = t
 			return NEXT
 		}
 		if t == "(" {
-			yylval.cmd = t
 			return OPENBR
 		}
 		if t == ")" {
-			yylval.cmd = t
 			return CLOSEBR
 		}
 		if t[0] >= 'A' && t[0] <= 'Z' {
