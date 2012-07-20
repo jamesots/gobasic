@@ -174,6 +174,7 @@ func NewCode(code *Code) {
 %token	<code>	LET
 %token	<code>	IF
 %token	<code>	THEN
+%token	<code>	ELSE
 %token	<code>	NOT
 %token	<code>	AND
 %token	<code>	OR
@@ -389,7 +390,28 @@ printcmd:
 	}
 
 ifcmd:
-	IF boolexpr THEN cmd
+	IF boolexpr THEN cmds ELSE cmds
+	{
+		NewCode(&$$)
+		if $2.state == BOOL {
+			if $2.boo {
+				PushAll($$, $4)
+			} else {
+				PushAll($$, $6)
+			}
+		} else {
+			ifcounter += 1
+			PushAll($$, $2)
+			WriteCode($$, "	cmp r0, #0\n")
+			WriteCode($$, "	beq ifelse%d\n", ifcounter)
+			PushAll($$, $4)
+			WriteCode($$, "	b ifend%d\n", ifcounter)
+			WriteCode($$, "ifelse%d:\n", ifcounter)
+			PushAll($$, $6)
+			WriteCode($$, "ifend%d:\n", ifcounter)
+		}
+	}
+|	IF boolexpr THEN cmds
 	{
 		NewCode(&$$)
 		if $2.state == BOOL {
@@ -710,6 +732,9 @@ func (BobLex) Lex(yylval *yySymType) int {
 			fmt.Println("IDENTIFIER: ", t)
 			if t == "PRINT" {
 				return PRINT
+			}
+			if t == "ELSE" {
+				return ELSE
 			}
 			if t == "TRUE" {
 				return TRUE
