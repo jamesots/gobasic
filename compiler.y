@@ -27,6 +27,7 @@ var forvars *list.List
 
 type Code struct {
 	code *list.List
+	data *list.List
 	numb int
 	boo bool
 	state int
@@ -174,10 +175,8 @@ letstrcmd:
 	{
 		if $4.state == STRING {
 			NewCode(&$$)
-			WriteCode($$, ".section .data\n")
-			WriteCode($$, "str%s:\n", $2)
-			WriteCode($$, "	.asciz \"%s\"\n", $4.str)
-			WriteCode($$, ".section .text\n")
+			WriteData($$, "str%s:\n", $2)
+			WriteData($$, "	.asciz \"%s\"\n", $4.str)
 			// how to store a string?
 		}
 	}
@@ -240,15 +239,13 @@ fortocmd:
 			forcounter,
 		})
 		NewCode(&$$)
-		WriteCode($$, ".section .data\n")
 		if !Contains(numvars, $2) {
-			WriteCode($$, "var%s:\n", $2)
-			WriteCode($$, "	.word 0\n")
+			WriteData($$, "var%s:\n", $2)
+			WriteData($$, "	.word 0\n")
 			numvars.PushBack($2)
 		}
-		WriteCode($$, "forlimit%d:\n", forcounter)
-		WriteCode($$, "	.word 0\n")
-		WriteCode($$, ".section .text\n")
+		WriteData($$, "forlimit%d:\n", forcounter)
+		WriteData($$, "	.word 0\n")
 		LoadNum($$, $4)
 		WriteCode($$, "	ldr r1, =var%s\n", $2)
 		WriteCode($$, "	str r0, [r1]\n")
@@ -287,10 +284,8 @@ printcmd:
 		NewCode(&$$)
 		if $2.state == STRING {
 			varcounter += 1
-			WriteCode($$, ".section .data\n")
-			WriteCode($$, "str%d:\n", varcounter)
-			WriteCode($$, "	.asciz \"%s\"\n", $2.str)
-			WriteCode($$, ".section .text\n")
+			WriteData($$, "str%d:\n", varcounter)
+			WriteData($$, "	.asciz \"%s\"\n", $2.str)
 			WriteCode($$, "	ldr r0, =str%d\n", varcounter)
 		} else {
 			PushAll($$, $2)

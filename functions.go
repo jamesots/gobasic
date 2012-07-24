@@ -20,16 +20,30 @@ func PushAll(to Code, from Code) {
 	for e := from.code.Front(); e != nil; e = e.Next() {
 		to.code.PushBack(e.Value)
 	}
+	for e := from.data.Front(); e != nil; e = e.Next() {
+		to.data.PushBack(e.Value)
+	}
 }
 
 func PrintAll(file *os.File, from Code) {
-	if from.code == nil {
+	if from.code == nil || from.data == nil {
 		return
 	}
 	for e := from.code.Front(); e != nil; e = e.Next() {
 		var s = e.Value.(string)
 		file.WriteString(s)
 	}
+	file.WriteString(".section .data\n")
+	for e := from.data.Front(); e != nil; e = e.Next() {
+		var s = e.Value.(string)
+		file.WriteString(s)
+	}
+	file.WriteString(".section .text\n")
+}
+
+func WriteData(code Code, format string, a ...interface{}) {
+	res := fmt.Sprintf(format, a...)
+	code.data.PushBack(res)
 }
 
 func WriteCode(code Code, format string, a ...interface{}) {
@@ -57,10 +71,8 @@ func LoadPushNum(to Code, code Code) {
 
 func CreateNumVar(to Code, varname string, val int) {
 	if !Contains(numvars, varname) {
-		WriteCode(to, ".section .data\n")
-		WriteCode(to, "var%s:\n", varname)
-		WriteCode(to, "	.word %d\n", val)
-		WriteCode(to, ".section .text\n")
+		WriteData(to, "var%s:\n", varname)
+		WriteData(to, "	.word %d\n", val)
 		numvars.PushBack(varname)
 	}
 }
@@ -132,4 +144,5 @@ func LoadPushBool(to Code, code Code) {
 func NewCode(code *Code) {
 	code.code = list.New()
 	code.state = CODE
+	code.data = list.New()
 }

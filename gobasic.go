@@ -50,13 +50,11 @@ _start:
 `)
 }
 
-func WriteEnd(file *os.File) {
-	file.WriteString(
-		`@end
-	mov	r0, #0
-	mov	r7, #1
-	svc	0x00000000
-`)
+func WriteEnd(code Code) {
+	WriteCode(code, "end:\n")
+	WriteCode(code, "	mov	r0, #0\n")
+	WriteCode(code, "	mov	r7, #1\n")
+	WriteCode(code, "	svc	0x00000000\n")
 }
 
 func CheckError(err error) bool {
@@ -99,6 +97,6 @@ func main() {
 	
 	Parse(toks)
 	CleanPushPop(result)
+	WriteEnd(result)
 	PrintAll(file, result)
-	WriteEnd(file)
 }
