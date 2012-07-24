@@ -2,10 +2,10 @@
 package main
 
 import (
-	"os"
-	"fmt"
-	"strconv"
 	"container/list"
+	"fmt"
+	"os"
+	"strconv"
 )	
 
 var varcounter int
@@ -16,9 +16,9 @@ var lastlinenum int = -1
 var result Code
 
 type LoopInfo struct {
-	varname string
-	limit   int
-	forcount	int
+	varname  string
+	limit    int
+	forcount int
 }
 
 var numvars *list.List
@@ -26,12 +26,12 @@ var strvars *list.List
 var forvars *list.List
 
 type Code struct {
-	code *list.List
-	data *list.List
-	numb int
-	boo bool
+	code  *list.List
+	data  *list.List
+	numb  int
+	boo   bool
 	state int
-	str string
+	str   string
 }
 
 const (
@@ -624,7 +624,7 @@ var tokens *list.List
 
 func (BobLex) Lex(yylval *yySymType) int {
 	e := tokens.Front()
-	if (e != nil) {
+	if e != nil {
 		token := tokens.Remove(e).(Token)
 		t := token.text
 		tokentype := token.tokentype

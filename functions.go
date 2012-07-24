@@ -1,11 +1,11 @@
 package main
 
 import (
-	"os"
-	"fmt"
-	"regexp"
 	"container/list"
-)	
+	"fmt"
+	"os"
+	"regexp"
+)
 
 func Contains(l *list.List, item interface{}) bool {
 	for e := l.Front(); e != nil; e = e.Next() {
@@ -96,7 +96,7 @@ func CleanPushPop(code Code) {
 		return
 	}
 	for e := code.code.Front(); e != nil; e = e.Next() {
-		if (e.Value != nil) {
+		if e.Value != nil {
 			s := e.Value.(string)
 			if popRe.MatchString(s) {
 				reg := popRe.FindStringSubmatch(s)[1]

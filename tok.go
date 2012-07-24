@@ -11,13 +11,13 @@ import (
 var toks *list.List
 
 type Token struct {
-	text string
+	text      string
 	tokentype int
 }
 
 func NextTok(tok *bytes.Buffer, tokentype int) {
 	if tok.Len() > 0 {
-//		fmt.Println(tok.String())
+		//		fmt.Println(tok.String())
 		toks.PushBack(Token{
 			tok.String(),
 			tokentype})
@@ -26,7 +26,7 @@ func NextTok(tok *bytes.Buffer, tokentype int) {
 }
 
 const (
-	TOK_STRING int = iota+1
+	TOK_STRING int = iota + 1
 	TOK_NUMBER
 	TOK_SYMBOL
 	TOK_NEWLINE
@@ -52,15 +52,15 @@ func Tokenise(filename string) (*list.List, error) {
 		if err != nil {
 			break
 		}
-		
+
 		if c == '\n' {
 			NextTok(&tok, state)
-			tok.WriteString("**NEWLINE**");
+			tok.WriteString("**NEWLINE**")
 			NextTok(&tok, TOK_NEWLINE)
 			state = TOK_IDENTIFIER
 			continue
 		}
-		
+
 		if state == TOK_IDENTIFIER {
 			if c >= '0' && c <= '9' {
 				reader.UnreadRune()
@@ -69,7 +69,7 @@ func Tokenise(filename string) (*list.List, error) {
 			} else if c == '"' {
 				NextTok(&tok, state)
 				state = TOK_STRING
-			} else if (c == ' ' || c == '\t') {
+			} else if c == ' ' || c == '\t' {
 				NextTok(&tok, state)
 			} else if c == '$' {
 				tok.WriteRune(c)
@@ -86,14 +86,14 @@ func Tokenise(filename string) (*list.List, error) {
 				reader.UnreadRune()
 				NextTok(&tok, state)
 				state = TOK_IDENTIFIER
-			} else if (c == ' ' || c == '\t') {
+			} else if c == ' ' || c == '\t' {
 				NextTok(&tok, state)
 			} else {
 				tok.WriteRune(c)
 				s := tok.String()
 				if s == "(" || s == ")" {
 					NextTok(&tok, state)
-				} 
+				}
 			}
 		} else if state == TOK_NUMBER {
 			if c >= '0' && c <= '9' {
@@ -113,11 +113,11 @@ func Tokenise(filename string) (*list.List, error) {
 		}
 	}
 	NextTok(&tok, state)
-	
+
 	for e := toks.Front(); e != nil; e = e.Next() {
 		var s = e.Value.(Token)
 		fmt.Println(s.text, s.tokentype)
 	}
-	
+
 	return toks, nil
 }

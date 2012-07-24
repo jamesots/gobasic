@@ -94,7 +94,7 @@ func main() {
 	WriteHeader(file)
 
 	toks, err := Tokenise(filename)
-	
+
 	Parse(toks)
 	CleanPushPop(result)
 	WriteEnd(result)
