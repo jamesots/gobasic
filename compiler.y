@@ -44,10 +44,10 @@ const (
 
 %union
 {
-	numb	int
-	code	Code
-	str	string
-	vvar	string
+	numb int
+	code Code
+	str  string
+	vvar string
 }
 
 %type	<code>	all
@@ -142,7 +142,8 @@ line:
 		WriteCode($$, "line%d:\n", $1)
 		PushAll($$, $2)
 	}
-|	{} // empty line
+|	{
+	} // empty line
 
 cmds:
 	cmd
@@ -617,7 +618,6 @@ numexpr:
 	}
 
 %%
-
 type BobLex int // the int here is the input that yyParse takes
 
 var tokens *list.List
@@ -679,7 +679,7 @@ func (BobLex) Lex(yylval *yySymType) int {
 				return NEXT
 			}
 			if t[len(t)-1] == '$' {
-				yylval.vvar = t[0:len(t)-1]
+				yylval.vvar = t[0 : len(t)-1]
 				return STRVAR
 			} else {
 				yylval.vvar = t
