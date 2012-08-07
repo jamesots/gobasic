@@ -3,6 +3,7 @@
 .global print
 .global println
 .global printbool
+.global printint
 
 @ input: r0 = address of null terminated string
 
@@ -40,6 +41,28 @@ printbool:
 	pop	{lr}
 	bx	lr
 
+printint:
+	push	{r5, lr}
+	ldr	r3, =numbuf
+	mov	r4, r0			@ store our number in r4
+
+	mov	r5, #28			@ need to shift by 28 to get high order digit
+printintloop:
+	lsr	r0, r4, r5
+	and	r0, r0, #0xF
+	ldr	r2, =hex
+	ldr	r0, [r2, r0]
+	strb	r0, [r3]
+	add	r3, r3, #1
+	sub	r5, r5, #4
+	cmp	r5, #0
+	bge	printintloop
+
+	ldr	r0, =numbuf
+	bl	print
+	pop	{r5, lr}
+	bx	lr
+
 .section .data
 lfz:
 	.asciz	"\n"
@@ -47,3 +70,7 @@ true:
 	.asciz	"true"
 false:
 	.asciz	"false"
+hex:
+	.asciz	"0123456789ABCDEF"
+numbuf:
+	.asciz	"00000000\n"
