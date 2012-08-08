@@ -1,4 +1,6 @@
 1 PRINT "Testing the BASIC compiler"
+2 LET S$ = "Hello" + "!"
+3 PRINT S$ + "HEY"
 10 PRINT "Hello again"
 11 IF 1<2 THEN PRINT "Hey" : PRINT "HEY!"
 12 IF 1=1 THEN PRINT "ho" : IF 1 = 3 THEN PRINT "HO!" ELSE PRINT "WIBBLE" ELSE PRINT "WOBBLE"

@@ -174,19 +174,18 @@ cmd:
 letstrcmd:
 	LET STRVAR EQ strexpr
 	{
-		if $4.state == STRING {
-			NewCode(&$$)
-			WriteData($$, "str%s:\n", $2)
-			WriteData($$, "	.asciz \"%s\"\n", $4.str)
-			// how to store a string?
-		}
+		NewCode(&$$)
+		CreateStrVar($$, $2)
+		LoadStr($$, $4)
+		WriteCode($$, "	ldr r1, =str%s\n", $2)
+		WriteCode($$, "	str r0, [r1]\n")
 	}
 
 letnumcmd:
 	LET VAR EQ numexpr
 	{
 		NewCode(&$$)
-		CreateNumVar($$, $2, 0)
+		CreateNumVar($$, $2)
 		LoadNum($$, $4)
 		WriteCode($$, "	ldr r1, =var%s\n", $2)
 		WriteCode($$, "	str r0, [r1]\n")
@@ -285,11 +284,13 @@ printcmd:
 		NewCode(&$$)
 		if $2.state == STRING {
 			varcounter += 1
-			WriteData($$, "str%d:\n", varcounter)
+			WriteData($$, "	.word 0\n")
+			WriteData($$, "strconst%d:\n", varcounter)
 			WriteData($$, "	.asciz \"%s\"\n", $2.str)
-			WriteCode($$, "	ldr r0, =str%d\n", varcounter)
+			WriteCode($$, "	ldr r0, =strconst%d\n", varcounter)
 		} else {
 			PushAll($$, $2)
+			WriteCode($$, "	ldr r0, [r0]\n")
 		}
 		WriteCode($$, "	bl println\n")
 	}

@@ -60,6 +60,19 @@ func LoadNum(to Code, code Code) {
 	}
 }
 
+func LoadStr(to Code, code Code) {
+	if code.state == STRING {
+		varcounter += 1
+		WriteData(to, "	.word 0\n") // indicate it is a constant and can't be freed
+		WriteData(to, "strconst%d:\n", varcounter)
+		WriteData(to, "	.asciz \"%s\"\n", code.str)
+		WriteCode(to, "	ldr r0, =strconst%d\n", varcounter)
+	} else {
+		PushAll(to, code)
+		WriteCode(to, "	pop {r0}\n")
+	}
+}
+
 func LoadPushNum(to Code, code Code) {
 	if code.state == NUM {
 		WriteCode(to, "	ldr r0, =%d\n", code.numb)
@@ -69,11 +82,19 @@ func LoadPushNum(to Code, code Code) {
 	}
 }
 
-func CreateNumVar(to Code, varname string, val int) {
+func CreateNumVar(to Code, varname string) {
 	if !Contains(numvars, varname) {
 		WriteData(to, "var%s:\n", varname)
-		WriteData(to, "	.word %d\n", val)
+		WriteData(to, "	.word 0\n")
 		numvars.PushBack(varname)
+	}
+}
+
+func CreateStrVar(to Code, varname string) {
+	if !Contains(strvars, varname) {
+		WriteData(to, "str%s:\n", varname)
+		WriteData(to, "	.word 0\n")
+		strvars.PushBack(varname)
 	}
 }
 
