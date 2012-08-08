@@ -28,13 +28,13 @@ end:
 @ output: r0 = remainder
 
 intmod:
-	push {lr, r4, r5}
+	push {r4, r5, lr}
 	mov r4, r0
 	mov r5, r1
 	bl intdiv
 	mul r1, r0, r5  @r1= result * divisor
 	sub r0, r4, r1
-	pop {lr, r4, r5}
+	pop {r4, r5, lr}
 	bx lr
 
 

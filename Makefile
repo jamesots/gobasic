@@ -1,5 +1,8 @@
-prog: prog.S dabble.o print.o math.o
-	gcc -nostartfiles -Wa,-ahls=prog.list,-L -ggdb -o prog prog.S dabble.o print.o math.o
+#GCC = arm-linux-gnueabi-gcc
+GCC = gcc
+
+prog: prog.S dabble.o print.o math.o mem.o
+	$(GCC) -nostartfiles -Wa,-ahls=prog.list,-L -ggdb -o prog prog.S dabble.o print.o math.o mem.o
 
 prog.S: prog.bas gobasic
 	./gobasic prog.bas
@@ -17,4 +20,4 @@ compiler: compiler.go
 	go build compiler.go
 
 %.o: %.S
-	gcc -Wa,-ahls=$*.list,-L -c -ggdb -o $*.o $*.S
+	$(GCC) -Wa,-ahls=$*.list,-L -c -ggdb -o $*.o $*.S

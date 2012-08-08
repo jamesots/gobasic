@@ -47,6 +47,7 @@ func WriteHeader(file *os.File) {
 .align 2
 .global _start
 _start:
+	bl	init_mem_man
 `)
 }
 
